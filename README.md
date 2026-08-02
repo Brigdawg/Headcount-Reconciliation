@@ -1,62 +1,34 @@
 # Headcount Control Tower
 
-BambooHR interview case study — interactive prototype + methodology deck for **headcount reconciliation**.
+An interactive product prototype for **headcount reconciliation** — bringing Finance and HR onto one shared view of plan vs. actual headcount, variance drivers, and hiring approvals.
 
-## Live demo
+Built as a BambooHR interview case study. Demo data is fictional (**Northline Systems**).
 
-After you push this repo to GitHub, the fastest public link is **Vercel** (free):
+**Live demo:** [https://headcount-reconciliation.vercel.app](https://headcount-reconciliation.vercel.app)
 
-```bash
-# from this folder
-npm install
-npx vercel --yes
-```
+## What’s inside
 
-Or connect the GitHub repo at [vercel.com/new](https://vercel.com/new) → import project → Framework: Vite → Deploy.  
-You will get a URL like `https://headcount-control-tower.vercel.app`.
+**Interactive prototype** — a BambooHR-styled app with:
 
-### GitHub Pages (alternative)
+- Story KPIs and headcount outlook (H2, YTD, 12-month views)
+- Variance bridge explaining plan vs. actual gaps
+- Department budgets and employment-type filters
+- Approvals queue, roles table, and audit/snapshot history
+- Finance vs. HR persona views
+- Excel export preview (illustrative, not a real download)
 
-```bash
-npm run build
-# then enable Pages on the `dist/` folder, or use the `gh-pages` branch workflow
-```
+**Case study deck** — process and research narrative:  
+[`deck/Headcount_Control_Tower_Case_Study.pptx`](deck/Headcount_Control_Tower_Case_Study.pptx)
 
-## Deliverables
-
-| Artifact | Location |
-|----------|----------|
-| Interactive prototype | this app (`npm run dev` or live Vercel URL) |
-| PowerPoint deck | [`deck/Headcount_Control_Tower_Case_Study.pptx`](deck/Headcount_Control_Tower_Case_Study.pptx) |
-
-### Deck story arc
-
-1. Problem  
-2. Why it matters (stakes + who benefits)  
-3. Evidence (finance quotes + market data)  
-4. Hypotheses  
-5. Interviews  
-6. Product process  
-7. Iterations (screenshots)  
-8. Success metrics + illustrative impact  
-9. Conclusion  
-
-## Local run
+## Try it locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Regenerate the deck
+Then open the URL Vite prints (typically `http://127.0.0.1:5173`).
 
-```bash
-pip3 install python-pptx pillow
-python3 deck/generate_deck.py
-```
+## Tech
 
-## Notes
-
-- Demo data is fictional (**Northline Systems**), patterned on a real multi-tab recon workflow  
-- Market stats on slides are sourced (AFP, Kinnect/Gartner cite, IJIRMPS, etc.) — see speaker notes  
-- Illustrative impact slide is labeled as a planning model, not a customer ROI claim  
+Vite · React · TypeScript · Recharts
