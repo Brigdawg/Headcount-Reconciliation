@@ -48,6 +48,12 @@ type ExportSheet = 'summary' | 'departments' | 'roles' | 'tickets';
 type ManualMode = 'correct' | 'departure' | 'add';
 type ManualAdj = { id: string; ts: string; kind: string; summary: string; dept: Dept };
 type CorrectField = 'actual' | 'planned' | 'board';
+
+const FIELD_LABEL: Record<CorrectField, string> = {
+  actual: 'Filled',
+  planned: 'Working plan',
+  board: 'Approved plan',
+};
 type DepartureDisposition = 'backfill' | 'not_backfilling' | 'pivot' | 'close';
 type AddSeatType = 'new' | 'backfill' | 'not_backfilling' | 'pivot' | 'close';
 
@@ -60,7 +66,7 @@ function fmtMoney(n: number) {
   return `$${(n / 1_000).toFixed(0)}K`;
 }
 
-function Variance({ n, suffix = ' vs board' }: { n: number; suffix?: string }) {
+function Variance({ n, suffix = ' vs plan' }: { n: number; suffix?: string }) {
   const cls = n < 0 ? 'neg' : n > 0 ? 'pos' : 'neutral';
   const sign = n > 0 ? '+' : '';
   return (
@@ -208,12 +214,12 @@ export default function App() {
       title: persona === 'finance' ? 'Headcount reconciliation' : 'Hiring & backfill control',
       sub:
         persona === 'finance'
-          ? 'Board vs planned vs actual as of July close — with named seats explaining the gap.'
-          : 'Classify seats (backfill, not backfilling, pivot) and move requests through HR and finance.',
+          ? 'Approved plan vs working plan vs filled as of July close — with named roles explaining the gap.'
+          : 'Classify roles (backfill, not backfilling, pivot) and move requests through HR and finance.',
     },
     departments: {
       title: 'Departments',
-      sub: 'Budget, headcount, and open seats by sector. Click any department to filter the whole product.',
+      sub: 'Budget, headcount, and open roles by sector. Click any department to filter the whole product.',
     },
     approvals: {
       title: 'Approvals',
@@ -221,7 +227,7 @@ export default function App() {
     },
     roles: {
       title: 'Roles',
-      sub: 'Role-level board vs planned vs actual. Tag each seat as new, backfill, not backfilling, pivot, close, or steady.',
+      sub: 'Compare each role to the approved plan. Tag as new, backfill, not backfilling, pivot, close, or steady.',
     },
     audit: {
       title: 'Audit & snapshots',
@@ -291,14 +297,14 @@ export default function App() {
         if (d.dept !== correctDept) return d;
         const updated = { ...d, [correctField]: nextVal };
         if (correctField === 'actual' && nextVal !== d.actual) {
-          updated.varianceExplain = `${d.varianceExplain} Manual ${correctField}: ${prev} → ${nextVal} (${correctReason.trim()}).`;
+          updated.varianceExplain = `${d.varianceExplain} Manual ${FIELD_LABEL[correctField]}: ${prev} → ${nextVal} (${correctReason.trim()}).`;
         }
         return updated;
       }),
     );
-    const summary = `${correctDept} ${correctField} ${prev} → ${nextVal}: ${correctReason.trim()}`;
+    const summary = `${correctDept} ${FIELD_LABEL[correctField]} ${prev} → ${nextVal}: ${correctReason.trim()}`;
     recordManual('Correct numbers', summary, correctDept, 'Manual number correction');
-    demoAction(`Updated ${correctDept} ${correctField} to ${nextVal}`);
+    demoAction(`Updated ${correctDept} ${FIELD_LABEL[correctField]} to ${nextVal}`);
     setCorrectValue('');
     setCorrectReason('');
     setManualOpen(false);
@@ -373,11 +379,11 @@ export default function App() {
       depDisposition === 'pivot'
         ? `${depPerson.trim()} left ${depTitle.trim()} · pivoted to ${depPivotTo.trim()}`
         : `${depPerson.trim()} left ${depTitle.trim()} · ${typeLabel(depDisposition)}`;
-    recordManual('Log departure', summary, depDept, 'Manual departure');
+    recordManual('Log a departure', summary, depDept, 'Manual departure');
     demoAction(
       depDisposition === 'backfill'
-        ? `Logged departure — ${depDept} actual −1, backfill ticket opened`
-        : `Logged departure — ${depDept} actual −1 (${typeLabel(depDisposition)})`,
+        ? `Logged departure — ${depDept} filled −1, backfill ticket opened`
+        : `Logged departure — ${depDept} filled −1 (${typeLabel(depDisposition)})`,
     );
     setDepTitle('');
     setDepPerson('');
@@ -419,7 +425,7 @@ export default function App() {
           actual: d.actual + addActual,
           openTickets: bumpTickets ? d.openTickets + 1 : d.openTickets,
           openBackfills: addType === 'backfill' ? d.openBackfills + 1 : d.openBackfills,
-          varianceExplain: `${d.varianceExplain} Added seat: ${addTitle.trim()} (${typeLabel(addType)}).`,
+          varianceExplain: `${d.varianceExplain} Added role: ${addTitle.trim()} (${typeLabel(addType)}).`,
         };
       }),
     );
@@ -436,15 +442,15 @@ export default function App() {
           status: 'pending',
           type: (addType === 'backfill' ? 'backfill' : 'new') as TicketType,
           targetStart: VIEWING_AS_OF,
-          rationale: addNote.trim() || `Manual seat add — ${typeLabel(addType)}`,
+          rationale: addNote.trim() || `Manual role add — ${typeLabel(addType)}`,
           daysOpen: 0,
         },
         ...prev,
       ]);
     }
 
-    const summary = `Added ${addTitle.trim()} · board ${addBoard} / planned ${addPlanned} / actual ${addActual}`;
-    recordManual('Add seat', summary, addDept, 'Manual seat add');
+    const summary = `Added ${addTitle.trim()} · approved plan ${addBoard} / working plan ${addPlanned} / filled ${addActual}`;
+    recordManual('Add a role', summary, addDept, 'Manual role add');
     demoAction(`Added ${addTitle.trim()} in ${addDept}`);
     setAddTitle('');
     setAddNote('');
@@ -538,7 +544,7 @@ export default function App() {
             </button>
             <span className="chip green">Demo data</span>
             <span className="chip">
-              Board lock <strong>{BOARD_AS_OF}</strong>
+              Plan locked <strong>{BOARD_AS_OF}</strong>
             </span>
             <span className="chip">
               July close · as of <strong>{CLOSE_AS_OF}</strong>
@@ -599,13 +605,13 @@ export default function App() {
                 </div>
                 <h2>
                   {scope.variance === 0
-                    ? 'On board plan'
-                    : `${Math.abs(scope.variance)} seat${Math.abs(scope.variance) === 1 ? '' : 's'} ${scope.variance < 0 ? 'under' : 'over'} board`}
+                    ? 'On the approved hiring plan'
+                    : `${Math.abs(scope.variance)} ${Math.abs(scope.variance) === 1 ? 'person' : 'people'} ${scope.variance < 0 ? 'under' : 'over'} the approved hiring plan`}
                 </h2>
                 <p>{scope.explain}</p>
                 {missingSeats.length > 0 && (
                   <>
-                    <h3 style={{ margin: '14px 0 0', fontSize: 13, fontWeight: 600 }}>What&apos;s missing</h3>
+                    <h3 style={{ margin: '14px 0 0', fontSize: 13, fontWeight: 600 }}>What&apos;s behind the gap</h3>
                     <div className="missing-list">
                       {missingSeats.slice(0, dept === 'all' ? 5 : 8).map((m) => (
                         <div className="missing-row" key={`${m.dept}-${m.title}-${m.disposition}`}>
@@ -629,15 +635,15 @@ export default function App() {
               </div>
               <div className="story-card story-metrics" style={{ background: 'var(--white)', borderColor: 'var(--line)' }}>
                 <div className="mini-stat">
-                  <span>Board</span>
+                  <span>Approved plan</span>
                   <strong>{scope.board}</strong>
                 </div>
                 <div className="mini-stat">
-                  <span>Actual</span>
+                  <span>Filled</span>
                   <strong>{scope.actual}</strong>
                 </div>
                 <div className="mini-stat">
-                  <span>Planned</span>
+                  <span>Working plan</span>
                   <strong>{scope.planned}</strong>
                 </div>
                 <div className="mini-stat">
@@ -650,6 +656,18 @@ export default function App() {
             <p className="date-banner">
               Headcount figures are as of July 31 close ({CLOSE_AS_OF}), not calendar today ({VIEWING_AS_OF}).
             </p>
+
+            <ul className="glossary-strip">
+              <li>
+                <strong>Approved plan</strong> = board-approved hiring headcount
+              </li>
+              <li>
+                <strong>Working plan</strong> = current intended hires
+              </li>
+              <li>
+                <strong>Filled</strong> = people in role as of July 31 close
+              </li>
+            </ul>
 
             {manualAdjs.length > 0 && (
               <div className="panel" style={{ marginBottom: 16, padding: '14px 16px' }}>
@@ -677,17 +695,17 @@ export default function App() {
 
             <section className="kpi-grid">
               <div className="kpi">
-                <div className="label">Board</div>
+                <div className="label">Approved plan</div>
                 <div className="value">{scope.board}</div>
-                <div className="hint">Approved plan</div>
+                <div className="hint">Board-approved hiring headcount</div>
               </div>
               <div className="kpi">
-                <div className="label">Planned</div>
+                <div className="label">Working plan</div>
                 <div className="value">{scope.planned}</div>
-                <div className="hint">Roll-forward</div>
+                <div className="hint">Current intended hires</div>
               </div>
               <div className="kpi">
-                <div className="label">Actual</div>
+                <div className="label">Filled</div>
                 <div className="value">{scope.actual}</div>
                 <Variance n={scope.variance} />
               </div>
@@ -697,10 +715,10 @@ export default function App() {
                 <div className="hint">{scope.openBackfills} backfills</div>
               </div>
               <div className="kpi">
-                <div className="label">FY-end plan</div>
+                <div className="label">FY-end working plan</div>
                 <div className="value">{scope.fyEndPlanned}</div>
                 <div className="hint">
-                  Board {scope.fyEndBoard} · Δ {scope.fyEndPlanned - scope.fyEndBoard}
+                  Approved plan {scope.fyEndBoard} · Δ {scope.fyEndPlanned - scope.fyEndBoard}
                 </div>
               </div>
             </section>
@@ -713,9 +731,9 @@ export default function App() {
                     <p>
                       {chartMode === 'outlook'
                         ? hist
-                          ? `History ${hist.from}→${hist.to}: actual ${hist.startActual} → ${hist.endActual} (${hist.delta > 0 ? '+' : ''}${hist.delta}). Solid = actual · dashed = planned · bars = board.`
-                          : 'Solid line = actual history. Dashed = planned future. Bars = board plan.'
-                        : 'Start at board plan, then each change — land on current FTE.'}
+                          ? `History ${hist.from}→${hist.to}: filled ${hist.startActual} → ${hist.endActual} (${hist.delta > 0 ? '+' : ''}${hist.delta}). Solid = filled · dashed = working plan · bars = approved plan.`
+                          : 'Solid line = filled history. Dashed = working plan forward. Bars = approved plan.'
+                        : 'Start at approved plan, then each change — land on filled headcount.'}
                     </p>
                   </div>
                   <div className="btn-row">
@@ -777,10 +795,11 @@ export default function App() {
                             formatter={(value, name) => [value ?? '—', String(name)]}
                           />
                           <Legend wrapperStyle={{ fontSize: 12 }} />
-                          <Bar dataKey="Board" fill="#d7ebb8" radius={[4, 4, 0, 0]} maxBarSize={outlookRange === 'h2' ? 36 : 22} />
+                          <Bar dataKey="Board" name="Approved plan" fill="#d7ebb8" radius={[4, 4, 0, 0]} maxBarSize={outlookRange === 'h2' ? 36 : 22} />
                           <Area
                             type="monotone"
                             dataKey="Actual"
+                            name="Filled"
                             stroke="#5aa314"
                             fill="url(#actualFill)"
                             strokeWidth={2.5}
@@ -790,6 +809,7 @@ export default function App() {
                           <Line
                             type="monotone"
                             dataKey="Planned"
+                            name="Working plan"
                             stroke="#1c2118"
                             strokeWidth={2}
                             strokeDasharray="5 4"
@@ -806,9 +826,9 @@ export default function App() {
                       </ResponsiveContainer>
                     </div>
                     <div className="legend-row">
-                      <span><i style={{ background: '#d7ebb8', height: 10 }} /> Board plan</span>
-                      <span><i style={{ background: '#5aa314' }} /> Actual (to close)</span>
-                      <span><i style={{ background: '#1c2118', height: 2 }} /> Planned forward</span>
+                      <span><i style={{ background: '#d7ebb8', height: 10 }} /> Approved plan</span>
+                      <span><i style={{ background: '#5aa314' }} /> Filled (to close)</span>
+                      <span><i style={{ background: '#1c2118', height: 2 }} /> Working plan forward</span>
                       <span className="range-hint">
                         {OUTLOOK_RANGES.find((r) => r.id === outlookRange)?.hint}
                       </span>
@@ -818,12 +838,12 @@ export default function App() {
                   <div className="bridge">
                     <div className="bridge-intro">
                       <div>
-                        <span>Board plan</span>
+                        <span>Approved plan</span>
                         <strong>{bridgeRows[0]?.value ?? scope.board}</strong>
                       </div>
                       <div className="bridge-arrow">→</div>
                       <div>
-                        <span>Current FTE</span>
+                        <span>Filled</span>
                         <strong>{bridgeRows[bridgeRows.length - 1]?.value ?? scope.actual}</strong>
                       </div>
                       <div className="bridge-arrow">=</div>
@@ -872,7 +892,7 @@ export default function App() {
                       })}
                     </div>
                     <p className="bridge-note">
-                      Read top to bottom: start at board plan, apply each change, land on filled FTE as of July close.
+                      Read top to bottom: start at approved plan, apply each change, land on filled headcount as of July close.
                       Gaps are named by disposition — backfill, not backfilling, or pivot — so Finance and HR share one story.
                     </p>
                   </div>
@@ -987,8 +1007,8 @@ export default function App() {
                 <div className="detail">
                   <h3>Definitions</h3>
                   <p>
-                    <strong>Board</strong>, <strong>Planned</strong>, and <strong>Actual</strong> are as of July 31 close ({CLOSE_AS_OF}).
-                    Dispositions: <strong>backfill</strong> = refill vacated seat; <strong>not backfilling</strong> = intentional open;
+                    <strong>Approved plan</strong>, <strong>Working plan</strong>, and <strong>Filled</strong> are as of July 31 close ({CLOSE_AS_OF}).
+                    Dispositions: <strong>backfill</strong> = refill vacated role; <strong>not backfilling</strong> = intentional open;
                     <strong> pivot</strong> = headcount moved to another role.
                   </p>
                 </div>
@@ -996,7 +1016,7 @@ export default function App() {
                 <div className="manual-callout">
                   <div>
                     <strong>Something change mid-month?</strong>
-                    <p>Correct numbers, log a departure, or add a seat — updates flow into the story and bridge.</p>
+                    <p>Correct numbers, log a departure, or add a role — updates flow into the story and bridge.</p>
                   </div>
                   <button className="btn primary" onClick={() => openManual('correct')}>
                     Open manual update
@@ -1023,11 +1043,11 @@ export default function App() {
                   </p>
                   <div className="nums">
                     <div>
-                      <span>Board</span>
+                      <span>Approved plan</span>
                       <strong>{d.board}</strong>
                     </div>
                     <div>
-                      <span>Actual</span>
+                      <span>Filled</span>
                       <strong>{d.actual}</strong>
                     </div>
                     <div>
@@ -1177,7 +1197,7 @@ export default function App() {
                 </div>
                 <div className="detail">
                   <h3>Path</h3>
-                  <p>Manager submits → HR classifies (new / backfill / not backfilling / pivot) → Finance checks board budget → Approved seat enters roll-forward.</p>
+                  <p>Manager submits → HR classifies (new / backfill / not backfilling / pivot) → Finance checks against approved plan → Approved hire enters the working plan.</p>
                   <div className="manual-callout compact">
                     <p>Need to log something outside the ticket path?</p>
                     <button className="btn" onClick={() => openManual('departure')}>
@@ -1248,9 +1268,9 @@ export default function App() {
                     <th>Role</th>
                     <th>Dept</th>
                     <th>Type</th>
-                    <th>Board</th>
-                    <th>Planned</th>
-                    <th>Actual</th>
+                    <th>Approved plan</th>
+                    <th>Working plan</th>
+                    <th>Filled</th>
                     <th>Δ</th>
                     <th>Status</th>
                   </tr>
@@ -1316,15 +1336,15 @@ export default function App() {
               )}
               <div className="detail-grid">
                 <div className="detail-stat">
-                  <span>Board</span>
+                  <span>Approved plan</span>
                   <strong>{role.board}</strong>
                 </div>
                 <div className="detail-stat">
-                  <span>Planned</span>
+                  <span>Working plan</span>
                   <strong>{role.planned}</strong>
                 </div>
                 <div className="detail-stat">
-                  <span>Actual</span>
+                  <span>Filled</span>
                   <strong>{role.actual}</strong>
                 </div>
                 <div className="detail-stat">
@@ -1342,7 +1362,7 @@ export default function App() {
               <div className="panel-h">
                 <div>
                   <h2>As-of snapshots</h2>
-                  <p>Compare board lock, mid-month, and close.</p>
+                  <p>Compare plan lock, mid-month, and close.</p>
                 </div>
               </div>
               <div className="snap-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
@@ -1356,19 +1376,19 @@ export default function App() {
                     <div className="asof">As of {s.asOf}</div>
                     <div className="nums">
                       <div>
-                        <span>Board</span>
+                        <span>Approved plan</span>
                         <strong>{s.board}</strong>
                       </div>
                       <div>
-                        <span>Actual</span>
+                        <span>Filled</span>
                         <strong>{s.actual}</strong>
                       </div>
                       <div>
-                        <span>Planned</span>
+                        <span>Working plan</span>
                         <strong>{s.planned}</strong>
                       </div>
                       <div>
-                        <span>Δ Board</span>
+                        <span>Δ vs plan</span>
                         <strong>{s.variance}</strong>
                       </div>
                     </div>
@@ -1378,8 +1398,8 @@ export default function App() {
               <div className="detail">
                 <h3>{activeSnap.label}</h3>
                 <p>
-                  At {activeSnap.asOf}: board {activeSnap.board}, planned {activeSnap.planned}, actual{' '}
-                  {activeSnap.actual}. Variance vs board: {activeSnap.variance}.
+                  At {activeSnap.asOf}: approved plan {activeSnap.board}, working plan {activeSnap.planned}, filled{' '}
+                  {activeSnap.actual}. Variance vs plan: {activeSnap.variance}.
                 </p>
               </div>
             </div>
@@ -1479,22 +1499,22 @@ export default function App() {
                   </thead>
                   <tbody>
                     <tr>
-                      <td>Board FTE</td>
+                      <td>Approved plan</td>
                       <td>{scope.board}</td>
-                      <td>Board-approved headcount</td>
+                      <td>Board-approved hiring headcount</td>
                     </tr>
                     <tr>
-                      <td>Planned (roll-forward)</td>
+                      <td>Working plan</td>
                       <td>{scope.planned}</td>
-                      <td>Living plan including approved adds</td>
+                      <td>Living hiring plan after approved changes</td>
                     </tr>
                     <tr>
-                      <td>Actual FTE</td>
+                      <td>Filled</td>
                       <td>{scope.actual}</td>
-                      <td>Filled seats as of July close {CLOSE_AS_OF}</td>
+                      <td>People in role as of July close {CLOSE_AS_OF}</td>
                     </tr>
                     <tr>
-                      <td>Variance vs board</td>
+                      <td>Variance vs plan</td>
                       <td>
                         {scope.variance > 0 ? '+' : ''}
                         {scope.variance}
@@ -1507,14 +1527,14 @@ export default function App() {
                       <td>Pending / in review</td>
                     </tr>
                     <tr>
-                      <td>FY-end board</td>
+                      <td>FY-end approved plan</td>
                       <td>{scope.fyEndBoard}</td>
-                      <td>December board plan</td>
+                      <td>December approved plan</td>
                     </tr>
                     <tr>
-                      <td>FY-end planned</td>
+                      <td>FY-end working plan</td>
                       <td>{scope.fyEndPlanned}</td>
-                      <td>December roll-forward</td>
+                      <td>December working plan</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1525,10 +1545,10 @@ export default function App() {
                   <thead>
                     <tr>
                       <th>Department</th>
-                      <th>Board</th>
-                      <th>Planned</th>
-                      <th>Actual</th>
-                      <th>Δ Board</th>
+                      <th>Approved plan</th>
+                      <th>Working plan</th>
+                      <th>Filled</th>
+                      <th>Δ vs plan</th>
                       <th>Open tickets</th>
                       <th>Budget</th>
                       <th>Spend</th>
@@ -1558,9 +1578,9 @@ export default function App() {
                       <th>Role</th>
                       <th>Department</th>
                       <th>Type</th>
-                      <th>Board</th>
-                      <th>Planned</th>
-                      <th>Actual</th>
+                      <th>Approved plan</th>
+                      <th>Working plan</th>
+                      <th>Filled</th>
                       <th>Δ</th>
                       <th>Status</th>
                       <th>Replacing</th>
@@ -1656,8 +1676,7 @@ export default function App() {
               <div>
                 <h2 id="manual-title">Manual update</h2>
                 <p>
-                  Mid-cycle changes systems miss — edit numbers, log a departure, or add a seat. Updates flow into
-                  the story, bridge, and audit.
+                  Use this when something happens mid-month that systems didn’t pick up.
                 </p>
               </div>
               <button className="btn" onClick={() => setManualOpen(false)}>
@@ -1669,8 +1688,8 @@ export default function App() {
               {(
                 [
                   ['correct', 'Correct numbers'],
-                  ['departure', 'Log departure'],
-                  ['add', 'Add seat'],
+                  ['departure', 'Log a departure'],
+                  ['add', 'Add a role'],
                 ] as const
               ).map(([id, label]) => (
                 <button
@@ -1705,9 +1724,9 @@ export default function App() {
                       value={correctField}
                       onChange={(e) => setCorrectField(e.target.value as CorrectField)}
                     >
-                      <option value="actual">Actual</option>
-                      <option value="planned">Planned</option>
-                      <option value="board">Board</option>
+                      <option value="actual">Filled</option>
+                      <option value="planned">Working plan</option>
+                      <option value="board">Approved plan</option>
                     </select>
                   </div>
                   <div className="field">
@@ -1833,7 +1852,7 @@ export default function App() {
                     </select>
                   </div>
                   <div className="field">
-                    <label>Board seats</label>
+                    <label>In approved plan</label>
                     <input
                       type="number"
                       min={0}
@@ -1842,7 +1861,7 @@ export default function App() {
                     />
                   </div>
                   <div className="field">
-                    <label>Planned</label>
+                    <label>In working plan</label>
                     <input
                       type="number"
                       min={0}
@@ -1851,7 +1870,7 @@ export default function App() {
                     />
                   </div>
                   <div className="field">
-                    <label>Actual</label>
+                    <label>Already filled</label>
                     <input
                       type="number"
                       min={0}
@@ -1876,8 +1895,9 @@ export default function App() {
               <p>
                 {manualMode === 'correct' && 'Corrections update department totals and appear on the variance bridge.'}
                 {manualMode === 'departure' &&
-                  'Departures reduce actual headcount and create a named role row for the disposition.'}
-                {manualMode === 'add' && 'New seats bump department board / planned / actual and appear on Roles.'}
+                  'Departures reduce filled headcount and create a named role row for the disposition.'}
+                {manualMode === 'add' &&
+                  'New roles bump approved plan / working plan / filled and appear on Roles.'}
               </p>
               <div className="btn-row">
                 <button className="btn primary" onClick={saveManual}>

@@ -1,6 +1,6 @@
 # Headcount Control Tower
 
-An interactive product prototype for **headcount reconciliation** — bringing Finance and HR onto one shared view of plan vs. actual headcount, variance drivers, and hiring approvals.
+An interactive product prototype for **headcount reconciliation** — bringing Finance and HR onto one shared view of approved plan vs. filled headcount, variance drivers, and hiring approvals.
 
 Built as a BambooHR interview case study. Demo data is fictional (**Northline Systems**).
 
@@ -10,9 +10,10 @@ Built as a BambooHR interview case study. Demo data is fictional (**Northline Sy
 
 **Interactive prototype** — a BambooHR-styled app with:
 
-- A company story first: board vs actual as of a clear close date, with **named missing seats**
+- A company story first: **approved plan** vs **filled** as of a clear close date, with **named drivers** behind the gap
+- Three clear numbers: **Approved plan** (board-approved hiring headcount), **Working plan** (current intended hires), **Filled** (people in role as of close)
 - Variance bridge (backfill, not backfilling, pivot, delayed net-new)
-- **Manual update** for mid-cycle changes systems miss — correct numbers, log a departure, or add a seat
+- **Manual update** for mid-cycle changes systems miss — correct numbers, log a departure, or add a role
 - Department views, approvals queue, roles table, and as-of snapshots
 - Excel export preview (illustrative, not a real download)
 

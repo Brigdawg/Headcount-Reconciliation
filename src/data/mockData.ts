@@ -28,9 +28,9 @@ export interface MonthPoint {
 export type OutlookRange = 'h2' | 'ytd' | '12m';
 
 export const OUTLOOK_RANGES: { id: OutlookRange; label: string; hint: string }[] = [
-  { id: 'h2', label: 'H2 outlook', hint: 'Jun–Dec · default close view' },
-  { id: 'ytd', label: 'YTD 2026', hint: 'Jan–Dec with history + plan' },
-  { id: '12m', label: '12 months', hint: 'Aug ’25–Jul ’26 history + forward' },
+  { id: 'h2', label: 'H2 outlook', hint: 'Jun–Dec · approved plan vs filled to close' },
+  { id: 'ytd', label: 'YTD 2026', hint: 'Jan–Dec · history plus working plan ahead' },
+  { id: '12m', label: '12 months', hint: 'Aug ’25–Jul ’26 · filled history + plan forward' },
 ];
 
 
@@ -282,41 +282,41 @@ export const deptMonths: Record<Dept, MonthPoint[]> = {
 
 
 export const companyBridge: BridgeStep[] = [
-  { step: 'Board plan', value: 310, kind: 'start' },
+  { step: 'Approved plan', value: 310, kind: 'start' },
   { step: 'Net new delayed', value: -8, kind: 'neg' },
   { step: 'Open backfills', value: -6, kind: 'neg' },
   { step: 'Not backfilling', value: -2, kind: 'neg' },
   { step: 'Early exits (still open)', value: -2, kind: 'neg' },
   { step: 'Offers accepted', value: 1, kind: 'pos' },
-  { step: 'Current FTE', value: 293, kind: 'end' },
+  { step: 'Filled', value: 293, kind: 'end' },
 ];
 
 export const deptBridges: Partial<Record<Dept, BridgeStep[]>> = {
   Engineering: [
-    { step: 'Board plan', value: 112, kind: 'start' },
+    { step: 'Approved plan', value: 112, kind: 'start' },
     { step: 'Open backfills', value: -4, kind: 'neg' },
     { step: 'Delayed net new', value: -3, kind: 'neg' },
     { step: 'Pivot out → Product', value: -1, kind: 'neg' },
-    { step: 'Current FTE', value: 104, kind: 'end' },
+    { step: 'Filled', value: 104, kind: 'end' },
   ],
   Sales: [
-    { step: 'Board plan', value: 64, kind: 'start' },
-    { step: 'Rejected above-board', value: -1, kind: 'neg' },
-    { step: 'Open seats', value: -2, kind: 'neg' },
+    { step: 'Approved plan', value: 64, kind: 'start' },
+    { step: 'Rejected above approved plan', value: -1, kind: 'neg' },
+    { step: 'Open roles', value: -2, kind: 'neg' },
     { step: 'Pivot in from Marketing', value: 1, kind: 'pos' },
-    { step: 'Current FTE', value: 62, kind: 'end' },
+    { step: 'Filled', value: 62, kind: 'end' },
   ],
   Product: [
-    { step: 'Board plan', value: 28, kind: 'start' },
+    { step: 'Approved plan', value: 28, kind: 'start' },
     { step: 'PM backfill open', value: -1, kind: 'neg' },
     { step: 'Analyst delayed', value: -1, kind: 'neg' },
-    { step: 'Current FTE', value: 26, kind: 'end' },
+    { step: 'Filled', value: 26, kind: 'end' },
   ],
   Marketing: [
-    { step: 'Board plan', value: 22, kind: 'start' },
+    { step: 'Approved plan', value: 22, kind: 'start' },
     { step: 'Not backfilling — Events Mgr', value: -1, kind: 'neg' },
     { step: 'Role closed — Lifecycle', value: -1, kind: 'neg' },
-    { step: 'Current FTE', value: 20, kind: 'end' },
+    { step: 'Filled', value: 20, kind: 'end' },
   ],
 };
 
@@ -331,7 +331,7 @@ export const departments: DeptBudget[] = [
     budgetUsd: 18_400_000,
     spendUsd: 17_100_000,
     varianceExplain:
-      '4 open backfills, 3 delayed net-new, and 1 pivot out to Product (Frontend → Growth Ops). Missing seats are named on Home.',
+      '4 open backfills, 3 delayed net-new, and 1 pivot out to Product (Frontend → Growth Ops). What’s behind the gap is named on Home.',
   },
   {
     dept: 'Product',
@@ -353,7 +353,7 @@ export const departments: DeptBudget[] = [
     openTickets: 1,
     budgetUsd: 2_400_000,
     spendUsd: 2_250_000,
-    varianceExplain: 'Board-approved designer approved; start Aug 25.',
+    varianceExplain: 'Approved-plan designer hire locked; start Aug 25.',
   },
   {
     dept: 'Sales',
@@ -365,7 +365,7 @@ export const departments: DeptBudget[] = [
     budgetUsd: 7_800_000,
     spendUsd: 7_500_000,
     varianceExplain:
-      'Roll-forward +1 above board was rejected. Two AE seats still open. One headcount pivoted in from Marketing Content.',
+      'Working-plan +1 above approved plan was rejected. Two AE roles still open. One hire pivoted in from Marketing Content.',
   },
   {
     dept: 'Customer Success',
@@ -388,7 +388,7 @@ export const departments: DeptBudget[] = [
     budgetUsd: 3_100_000,
     spendUsd: 2_950_000,
     varianceExplain:
-      'Down 2 vs board: (1) Events Marketing Manager — left, not backfilling; (2) Lifecycle Marketing Manager — role closed. Content Manager pivoted to Sales Growth Ops (net team change, not a second open seat).',
+      'Down 2 vs approved plan: (1) Events Marketing Manager — left, not backfilling; (2) Lifecycle Marketing Manager — role closed. Content Manager pivoted to Sales Growth Ops (net team change, not a second open role).',
   },
   {
     dept: 'Finance',
@@ -399,7 +399,7 @@ export const departments: DeptBudget[] = [
     openTickets: 0,
     budgetUsd: 1_800_000,
     spendUsd: 1_750_000,
-    varianceExplain: 'On plan.',
+    varianceExplain: 'On the approved hiring plan.',
   },
   {
     dept: 'People',
@@ -410,7 +410,7 @@ export const departments: DeptBudget[] = [
     openTickets: 0,
     budgetUsd: 1_100_000,
     spendUsd: 1_050_000,
-    varianceExplain: 'On plan. No open tickets.',
+    varianceExplain: 'On the approved hiring plan. No open tickets.',
   },
   {
     dept: 'Operations',
@@ -421,7 +421,7 @@ export const departments: DeptBudget[] = [
     openTickets: 0,
     budgetUsd: 620_000,
     spendUsd: 600_000,
-    varianceExplain: 'On plan.',
+    varianceExplain: 'On the approved hiring plan.',
   },
 ];
 
@@ -444,12 +444,12 @@ export const roles: RoleRow[] = [
   { id: 'r16', title: 'Senior Product Manager', dept: 'Product', type: 'steady', board: 6, planned: 6, actual: 6, variance: 0, status: 'filled', manager: 'Sam Rivera' },
   { id: 'r17', title: 'Head of Product', dept: 'Product', type: 'steady', board: 1, planned: 1, actual: 1, variance: 0, status: 'filled' },
   // Design
-  { id: 'r19', title: 'Product Designer', dept: 'Design', type: 'new', board: 1, planned: 1, actual: 0, variance: -1, status: 'approved', note: 'Board-approved; Aug 25 start', startMonth: 'Aug', manager: 'Nina Brooks' },
+  { id: 'r19', title: 'Product Designer', dept: 'Design', type: 'new', board: 1, planned: 1, actual: 0, variance: -1, status: 'approved', note: 'In approved plan; Aug 25 start', startMonth: 'Aug', manager: 'Nina Brooks' },
   { id: 'r20', title: 'Senior Product Designer', dept: 'Design', type: 'steady', board: 6, planned: 6, actual: 6, variance: 0, status: 'filled', manager: 'Nina Brooks' },
   { id: 'r21', title: 'Design Manager', dept: 'Design', type: 'steady', board: 2, planned: 2, actual: 2, variance: 0, status: 'filled', manager: 'Nina Brooks' },
   { id: 'r22', title: 'Content Designer', dept: 'Design', type: 'steady', board: 3, planned: 3, actual: 3, variance: 0, status: 'filled', manager: 'Nina Brooks' },
   // Sales
-  { id: 'r24', title: 'Outbound AE', dept: 'Sales', type: 'new', board: 2, planned: 3, actual: 1, variance: -1, status: 'rejected', note: 'RF +1 above board rejected', startMonth: 'Sep', manager: 'Taylor Kim' },
+  { id: 'r24', title: 'Outbound AE', dept: 'Sales', type: 'new', board: 2, planned: 3, actual: 1, variance: -1, status: 'rejected', note: 'Working plan +1 above approved plan rejected', startMonth: 'Sep', manager: 'Taylor Kim' },
   { id: 'r25', title: 'Enterprise BDR', dept: 'Sales', type: 'new', board: 1, planned: 1, actual: 0, variance: -1, status: 'approved', startMonth: 'Aug', manager: 'Taylor Kim' },
   { id: 'r26', title: 'Account Executive', dept: 'Sales', type: 'steady', board: 28, planned: 28, actual: 27, variance: -1, status: 'filled', manager: 'Taylor Kim' },
   { id: 'r27', title: 'SDR', dept: 'Sales', type: 'steady', board: 16, planned: 16, actual: 16, variance: 0, status: 'filled', manager: 'Taylor Kim' },
@@ -461,9 +461,9 @@ export const roles: RoleRow[] = [
   { id: 'r32', title: 'Technical Account Manager', dept: 'Customer Success', type: 'backfill', board: 8, planned: 8, actual: 7, variance: -1, status: 'open', replacing: 'Morgan Ellis', manager: 'Priya Shah' },
   { id: 'r33', title: 'CS Director', dept: 'Customer Success', type: 'steady', board: 2, planned: 2, actual: 2, variance: 0, status: 'filled' },
   // Marketing — the −2 story, named
-  { id: 'r35', title: 'Lifecycle Marketing Manager', dept: 'Marketing', type: 'close', board: 1, planned: 0, actual: 0, variance: -1, status: 'filled', note: 'Role closed — budget reallocated; not hiring this seat', manager: 'Dana Ortiz' },
+  { id: 'r35', title: 'Lifecycle Marketing Manager', dept: 'Marketing', type: 'close', board: 1, planned: 0, actual: 0, variance: -1, status: 'filled', note: 'Role closed — budget reallocated; not hiring this role', manager: 'Dana Ortiz' },
   { id: 'r51', title: 'Events Marketing Manager', dept: 'Marketing', type: 'not_backfilling', board: 1, planned: 1, actual: 0, variance: -1, status: 'filled', replacing: 'Sam Brooks', note: 'Sam left Jul 10 — finance + HR agreed not to backfill', manager: 'Dana Ortiz' },
-  { id: 'r37', title: 'Content Manager', dept: 'Marketing', type: 'pivot', board: 1, planned: 0, actual: 0, variance: -1, status: 'filled', replacing: 'Riley Quinn', pivotedTo: 'Growth Ops Analyst · Sales', note: 'Riley pivoted to Sales — Marketing seat closed on plan', manager: 'Dana Ortiz' },
+  { id: 'r37', title: 'Content Manager', dept: 'Marketing', type: 'pivot', board: 1, planned: 0, actual: 0, variance: -1, status: 'filled', replacing: 'Riley Quinn', pivotedTo: 'Growth Ops Analyst · Sales', note: 'Riley pivoted to Sales — Marketing role closed on plan', manager: 'Dana Ortiz' },
   { id: 'r36', title: 'Product Marketing Manager', dept: 'Marketing', type: 'steady', board: 4, planned: 4, actual: 4, variance: 0, status: 'filled' },
   { id: 'r38', title: 'Demand Gen Manager', dept: 'Marketing', type: 'steady', board: 4, planned: 4, actual: 4, variance: 0, status: 'filled' },
   { id: 'r52', title: 'Brand Manager', dept: 'Marketing', type: 'steady', board: 3, planned: 3, actual: 3, variance: 0, status: 'filled' },
@@ -519,7 +519,7 @@ export const tickets: BackfillTicket[] = [
     replacing: 'Riley Quinn (Content Manager, Marketing)',
     pivotedTo: 'Sales · Growth Ops Analyst',
     targetStart: '2026-08-01',
-    rationale: 'Same person, new seat: Marketing Content → Sales Growth Ops. Keeps company FTE flat while moving the head.',
+    rationale: 'Same person, new role: Marketing Content → Sales Growth Ops. Keeps company filled headcount flat while moving the hire.',
     daysOpen: 13,
   },
   {
@@ -532,7 +532,7 @@ export const tickets: BackfillTicket[] = [
     type: 'not_backfilling',
     replacing: 'Sam Brooks',
     targetStart: '—',
-    rationale: 'Sam left Jul 10. Finance and HR agreed: do not backfill. Seat stays on board until next reforecast so the −1 is explained.',
+    rationale: 'Sam left Jul 10. Finance and HR agreed: do not backfill. Role stays on approved plan until next reforecast so the −1 is explained.',
     daysOpen: 19,
   },
   {
@@ -544,7 +544,7 @@ export const tickets: BackfillTicket[] = [
     status: 'approved',
     type: 'new',
     targetStart: '2026-08-25',
-    rationale: 'Board-approved net new for Design system capacity.',
+    rationale: 'Net new in the approved plan for Design system capacity.',
     daysOpen: 19,
   },
   {
@@ -556,7 +556,7 @@ export const tickets: BackfillTicket[] = [
     status: 'rejected',
     type: 'new',
     targetStart: '2026-09-01',
-    rationale: 'RF requested +1 above board; finance rejected until Q4 reforecast.',
+    rationale: 'Working plan requested +1 above approved plan; finance rejected until Q4 reforecast.',
     daysOpen: 3,
   },
   {
@@ -593,28 +593,28 @@ export const tickets: BackfillTicket[] = [
     status: 'pending',
     type: 'new',
     targetStart: '2026-10-15',
-    rationale: 'Board-approved net new for quality ownership.',
+    rationale: 'Net new in the approved plan for quality ownership.',
     daysOpen: 5,
   },
 ];
 
 export const auditTrail: AuditEvent[] = [
-  { id: 'a1', ts: '2026-07-31 16:42', actor: 'Alex Morgan (FP&A)', action: 'Snapshot locked', detail: 'July close — Board 310 / Planned 308 / Actual 293 as of 2026-07-31', dept: 'Finance' },
+  { id: 'a1', ts: '2026-07-31 16:42', actor: 'Alex Morgan (FP&A)', action: 'Snapshot locked', detail: 'July close — Approved plan 310 / Working plan 308 / Filled 293 as of 2026-07-31', dept: 'Finance' },
   { id: 'a2', ts: '2026-07-31 14:10', actor: 'Jordan Wells (HR)', action: 'Ticket advanced', detail: 'BF-1042 moved to HR review', dept: 'Engineering' },
   { id: 'a3', ts: '2026-07-30 11:05', actor: 'Alex Morgan (FP&A)', action: 'Variance explained', detail: 'Marketing −2 named: Events not backfilling + Lifecycle closed', dept: 'Marketing' },
-  { id: 'a4', ts: '2026-07-28 09:40', actor: 'Finance Committee', action: 'Rejected request', detail: 'RQ-2220 Outbound AE exceeds board plan', dept: 'Sales' },
+  { id: 'a4', ts: '2026-07-28 09:40', actor: 'Finance Committee', action: 'Rejected request', detail: 'RQ-2220 Outbound AE exceeds approved plan', dept: 'Sales' },
   { id: 'a5', ts: '2026-07-26 13:00', actor: 'Chris Park', action: 'Opened net-new', detail: 'RQ-2228 QA Manager submitted', dept: 'Engineering' },
   { id: 'a6', ts: '2026-07-25 15:22', actor: 'Sam Rivera', action: 'Opened backfill', detail: 'BF-1048 Product Manager — Growth', dept: 'Product' },
   { id: 'a7', ts: '2026-07-20 10:15', actor: 'Priya Shah', action: 'Opened backfill', detail: 'BF-1055 Technical Account Manager', dept: 'Customer Success' },
   { id: 'a8', ts: '2026-07-18 10:00', actor: 'Taylor Kim', action: 'Pivot approved', detail: 'PV-3010 Marketing Content → Sales Growth Ops', dept: 'Sales' },
   { id: 'a9', ts: '2026-07-12 09:30', actor: 'Dana Ortiz', action: 'Not backfilling', detail: 'NB-4401 Events Marketing Manager — Sam Brooks', dept: 'Marketing' },
-  { id: 'a10', ts: '2026-06-30 17:00', actor: 'Board', action: 'Plan locked', detail: 'H2 board headcount locked: 310 (Jul) → 340 (Dec)' },
+  { id: 'a10', ts: '2026-06-30 17:00', actor: 'Board', action: 'Plan locked', detail: 'H2 approved hiring plan locked: 310 (Jul) → 340 (Dec)' },
 ];
 
 export const snapshots: Snapshot[] = [
   { id: 's0', label: 'FY25 close', asOf: '2025-12-31', board: 270, planned: 270, actual: 268, variance: -2 },
   { id: 's1', label: 'Q1 close', asOf: '2026-03-31', board: 286, planned: 286, actual: 282, variance: -4 },
-  { id: 's2', label: 'Board lock', asOf: '2026-06-30', board: 298, planned: 298, actual: 292, variance: -6 },
+  { id: 's2', label: 'Plan locked', asOf: '2026-06-30', board: 298, planned: 298, actual: 292, variance: -6 },
   { id: 's3', label: 'July mid-month', asOf: '2026-07-15', board: 310, planned: 309, actual: 290, variance: -20 },
   { id: 's4', label: 'July close', asOf: '2026-07-31', board: 310, planned: 308, actual: 293, variance: -17 },
 ];
@@ -657,7 +657,7 @@ export function getMissingSeats(dept: Dept | 'all', roleList: RoleRow[] = roles)
             ? `Pivoted from ${r.pivotedFrom}`
             : r.replacing
               ? `Replacing ${r.replacing}`
-              : 'Open vs board'),
+              : 'Open vs approved plan'),
     }))
     .sort((a, b) => a.delta - b.delta);
 }
@@ -700,12 +700,12 @@ export function getBridgeForDept(
       ? companyBridge
       : deptBridges[dept] ?? [
           {
-            step: 'Board plan',
+            step: 'Approved plan',
             value: liveDepts.find((d) => d.dept === dept)?.board ?? 0,
             kind: 'start' as const,
           },
           {
-            step: 'Current FTE',
+            step: 'Filled',
             value: liveDepts.find((d) => d.dept === dept)?.actual ?? 0,
             kind: 'end' as const,
           },
@@ -728,7 +728,7 @@ export function getBridgeForDept(
       value: delta,
       kind: delta >= 0 ? 'pos' : 'neg',
     },
-    { step: 'Current FTE', value: liveActual, kind: 'end' },
+    { step: 'Filled', value: liveActual, kind: 'end' },
   ];
 }
 
@@ -751,8 +751,8 @@ export function summarizeScope(
   const storyBits =
     dept === 'all'
       ? variance === 0
-        ? 'On board plan as of the latest figures (July 31 close, plus any manual updates since).'
-        : `You are ${Math.abs(variance)} seat${Math.abs(variance) === 1 ? '' : 's'} ${variance < 0 ? 'under' : 'over'} board. The bridge names why — including any mid-cycle manual updates.`
+        ? 'On the approved hiring plan as of the latest figures (July 31 close, plus any manual updates since).'
+        : `You are ${Math.abs(variance)} ${Math.abs(variance) === 1 ? 'person' : 'people'} ${variance < 0 ? 'under' : 'over'} the approved hiring plan. The bridge names why — including any mid-cycle manual updates.`
       : depts[0]?.varianceExplain ?? '';
 
   return {
