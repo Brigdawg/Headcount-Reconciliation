@@ -10,11 +10,10 @@ Built as a BambooHR interview case study. Demo data is fictional (**Northline Sy
 
 **Interactive prototype** — a BambooHR-styled app with:
 
-- Story KPIs and headcount outlook (H2, YTD, 12-month views)
-- Variance bridge explaining plan vs. actual gaps
-- Department budgets and employment-type filters
-- Approvals queue, roles table, and audit/snapshot history
-- Finance vs. HR persona views
+- A company story first: board vs actual as of a clear close date, with **named missing seats**
+- Variance bridge (backfill, not backfilling, pivot, delayed net-new)
+- Simple Finance / HR disposition inputs on the same workflow
+- Department views, approvals queue, roles table, and as-of snapshots
 - Excel export preview (illustrative, not a real download)
 
 **Case study deck** — process and research narrative:  

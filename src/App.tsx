@@ -15,23 +15,26 @@ import {
 import {
   AS_OF,
   BOARD_AS_OF,
+  CLOSE_AS_OF,
   COMPANY,
   DEPT_LIST,
   OUTLOOK_RANGES,
+  VIEWING_AS_OF,
   auditTrail,
   departments,
   getBridgeForDept,
+  getMissingSeats,
   getMonthsForDept,
   historySummary,
   roles,
   snapshots,
   summarizeScope,
   tickets,
+  typeLabel,
   type AppView,
   type ApprovalStatus,
   type BridgeStep,
   type Dept,
-  type EmpType,
   type OutlookRange,
   type Persona,
   type RoleType,
@@ -97,8 +100,7 @@ export default function App() {
   const [view, setView] = useState<AppView>('home');
   const [persona, setPersona] = useState<Persona>('finance');
   const [dept, setDept] = useState<Dept | 'all'>('all');
-  const [empType, setEmpType] = useState<'all' | EmpType>('all');
-  const [chartMode, setChartMode] = useState<'outlook' | 'bridge'>('outlook');
+  const [chartMode, setChartMode] = useState<'outlook' | 'bridge'>('bridge');
   const [outlookRange, setOutlookRange] = useState<OutlookRange>('h2');
   const [ticketFilter, setTicketFilter] = useState<'all' | ApprovalStatus>('all');
   const [roleTypeFilter, setRoleTypeFilter] = useState<'all' | RoleType>('all');
@@ -108,35 +110,28 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportSheet, setExportSheet] = useState<ExportSheet>('summary');
+  const [dispDept, setDispDept] = useState<Dept>('Marketing');
+  const [dispType, setDispType] = useState<'backfill' | 'not_backfilling' | 'pivot' | 'close' | 'new'>(
+    'not_backfilling',
+  );
+  const [dispNote, setDispNote] = useState('');
 
-  const scope = useMemo(() => summarizeScope(dept, empType), [dept, empType]);
+  const scope = useMemo(() => summarizeScope(dept), [dept]);
   const months = useMemo(() => getMonthsForDept(dept, outlookRange), [dept, outlookRange]);
   const hist = useMemo(() => historySummary(months), [months]);
   const bridge = useMemo(() => getBridgeForDept(dept), [dept]);
   const bridgeRows = useMemo(() => buildBridgeRows(bridge), [bridge]);
+  const missingSeats = useMemo(() => getMissingSeats(dept), [dept]);
 
   const outlookData = useMemo(() => {
-    return months.map((m) => {
-      if (empType === 'contractor') {
-        return {
-          month: m.month,
-          Board: null as number | null,
-          Planned: m.contractors,
-          Actual: m.isFuture ? null : m.contractors,
-          Contractors: m.contractors,
-          isFuture: m.isFuture,
-        };
-      }
-      return {
-        month: m.month,
-        Board: m.board,
-        Planned: m.planned,
-        Actual: m.actual,
-        Contractors: empType === 'fte' ? null : m.contractors,
-        isFuture: m.isFuture,
-      };
-    });
-  }, [months, empType]);
+    return months.map((m) => ({
+      month: m.month,
+      Board: m.board,
+      Planned: m.planned,
+      Actual: m.actual,
+      isFuture: m.isFuture,
+    }));
+  }, [months]);
 
   const filteredTickets = useMemo(() => {
     return tickets.filter((t) => {
@@ -149,11 +144,10 @@ export default function App() {
   const filteredRoles = useMemo(() => {
     return roles.filter((r) => {
       if (dept !== 'all' && r.dept !== dept) return false;
-      if (empType !== 'all' && r.empType !== empType) return false;
       if (roleTypeFilter !== 'all' && r.type !== roleTypeFilter) return false;
       return true;
     });
-  }, [dept, empType, roleTypeFilter]);
+  }, [dept, roleTypeFilter]);
 
   const filteredDepts = useMemo(() => {
     if (dept === 'all') return departments;
@@ -177,8 +171,8 @@ export default function App() {
       title: persona === 'finance' ? 'Headcount reconciliation' : 'Hiring & backfill control',
       sub:
         persona === 'finance'
-          ? 'Compare board plan, roll-forward, and actual FTE — with contractors kept separate.'
-          : 'Track requisitions, classify roles, and move backfills through HR and finance review.',
+          ? 'Board vs planned vs actual as of July close — with named seats explaining the gap.'
+          : 'Classify seats (backfill, not backfilling, pivot) and move requests through HR and finance.',
     },
     departments: {
       title: 'Departments',
@@ -190,7 +184,7 @@ export default function App() {
     },
     roles: {
       title: 'Roles',
-      sub: 'Role-level board vs planned vs actual. Tag each seat as new, backfill, replace, close, or steady.',
+      sub: 'Role-level board vs planned vs actual. Tag each seat as new, backfill, not backfilling, pivot, close, or steady.',
     },
     audit: {
       title: 'Audit & snapshots',
@@ -288,7 +282,10 @@ export default function App() {
               Board lock <strong>{BOARD_AS_OF}</strong>
             </span>
             <span className="chip">
-              As of <strong>{AS_OF}</strong>
+              July close · as of <strong>{CLOSE_AS_OF}</strong>
+            </span>
+            <span className="chip">
+              Viewing <strong>{VIEWING_AS_OF}</strong>
             </span>
           </div>
         </header>
@@ -308,17 +305,6 @@ export default function App() {
               ))}
             </select>
           </div>
-          <div className="field">
-            <label>Employment type</label>
-            <select
-              value={empType}
-              onChange={(e) => setEmpType(e.target.value as 'all' | EmpType)}
-            >
-              <option value="all">FTE + contractors</option>
-              <option value="fte">Board FTE only</option>
-              <option value="contractor">Contractors only</option>
-            </select>
-          </div>
           {view === 'roles' && (
             <div className="field">
               <label>Role type</label>
@@ -327,11 +313,12 @@ export default function App() {
                 onChange={(e) => setRoleTypeFilter(e.target.value as 'all' | RoleType)}
               >
                 <option value="all">All types</option>
-                <option value="new">New</option>
-                <option value="backfill">Backfill</option>
-                <option value="replace">Replace</option>
-                <option value="close">Close</option>
-                <option value="steady">Steady</option>
+                <option value="new">{typeLabel('new')}</option>
+                <option value="backfill">{typeLabel('backfill')}</option>
+                <option value="not_backfilling">{typeLabel('not_backfilling')}</option>
+                <option value="pivot">{typeLabel('pivot')}</option>
+                <option value="close">{typeLabel('close')}</option>
+                <option value="steady">{typeLabel('steady')}</option>
               </select>
             </div>
           )}
@@ -349,35 +336,61 @@ export default function App() {
               <div className="story-card">
                 <div className="eyebrow">
                   {dept === 'all' ? 'Company story' : `${dept} story`} · {persona === 'finance' ? 'Finance' : 'HR'} lens
+                  {' · '}as of {CLOSE_AS_OF} close
                 </div>
                 <h2>
-                  {empType === 'contractor'
-                    ? `${scope.actual} contractors active`
-                    : scope.variance === 0
-                      ? 'On board plan'
-                      : `${Math.abs(scope.variance)} seat${Math.abs(scope.variance) === 1 ? '' : 's'} ${scope.variance < 0 ? 'under' : 'over'} board`}
+                  {scope.variance === 0
+                    ? 'On board plan'
+                    : `${Math.abs(scope.variance)} seat${Math.abs(scope.variance) === 1 ? '' : 's'} ${scope.variance < 0 ? 'under' : 'over'} board`}
                 </h2>
                 <p>{scope.explain}</p>
+                {missingSeats.length > 0 && (
+                  <>
+                    <h3 style={{ margin: '14px 0 0', fontSize: 13, fontWeight: 600 }}>What&apos;s missing</h3>
+                    <div className="missing-list">
+                      {missingSeats.slice(0, dept === 'all' ? 5 : 8).map((m) => (
+                        <div className="missing-row" key={`${m.dept}-${m.title}-${m.disposition}`}>
+                          <div>
+                            <div className="title">{m.title}</div>
+                            <div className="detail">
+                              {dept === 'all' ? `${m.dept} · ` : ''}
+                              {m.detail}
+                            </div>
+                          </div>
+                          <span className={`type-pill ${m.disposition}`}>{typeLabel(m.disposition)}</span>
+                          <span className={`delta ${m.delta < 0 ? 'neg' : m.delta > 0 ? 'pos' : 'neutral'}`}>
+                            {m.delta > 0 ? '+' : ''}
+                            {m.delta}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
               <div className="story-card story-metrics" style={{ background: 'var(--white)', borderColor: 'var(--line)' }}>
                 <div className="mini-stat">
-                  <span>Board FTE</span>
+                  <span>Board</span>
                   <strong>{scope.board}</strong>
                 </div>
                 <div className="mini-stat">
-                  <span>Actual FTE</span>
+                  <span>Actual</span>
                   <strong>{scope.actual}</strong>
                 </div>
                 <div className="mini-stat">
-                  <span>Planned (RF)</span>
+                  <span>Planned</span>
                   <strong>{scope.planned}</strong>
                 </div>
                 <div className="mini-stat">
-                  <span>{empType === 'fte' ? 'Open tickets' : 'Contractors'}</span>
-                  <strong>{empType === 'fte' ? scope.openTickets : scope.contractors}</strong>
+                  <span>Open tickets</span>
+                  <strong>{scope.openTickets}</strong>
                 </div>
               </div>
             </section>
+
+            <p className="date-banner">
+              Headcount figures are as of July 31 close ({CLOSE_AS_OF}), not calendar today ({VIEWING_AS_OF}).
+            </p>
 
             <section className="kpi-grid">
               <div className="kpi">
@@ -393,19 +406,18 @@ export default function App() {
               <div className="kpi">
                 <div className="label">Actual</div>
                 <div className="value">{scope.actual}</div>
-                {empType !== 'contractor' && <Variance n={scope.variance} />}
+                <Variance n={scope.variance} />
               </div>
               <div className="kpi">
-                <div className="label">Contractors</div>
-                <div className="value">{scope.contractors}</div>
-                <div className="hint">Not in board FTE</div>
+                <div className="label">Open tickets</div>
+                <div className="value">{scope.openTickets}</div>
+                <div className="hint">{scope.openBackfills} backfills</div>
               </div>
               <div className="kpi">
                 <div className="label">FY-end plan</div>
                 <div className="value">{scope.fyEndPlanned}</div>
                 <div className="hint">
-                  Board {scope.fyEndBoard}
-                  {empType !== 'contractor' ? ` · Δ ${scope.fyEndPlanned - scope.fyEndBoard}` : ''}
+                  Board {scope.fyEndBoard} · Δ {scope.fyEndPlanned - scope.fyEndBoard}
                 </div>
               </div>
             </section>
@@ -501,29 +513,19 @@ export default function App() {
                             dot={false}
                             connectNulls
                           />
-                          {empType !== 'fte' && (
-                            <Line
-                              type="monotone"
-                              dataKey="Contractors"
-                              stroke="#356891"
-                              strokeWidth={2}
-                              dot={false}
-                            />
-                          )}
                           <ReferenceLine
                             x="Jul"
                             stroke="#9a7408"
                             strokeDasharray="3 3"
-                            label={{ value: 'Today', fill: '#9a7408', fontSize: 11, position: 'top' }}
+                            label={{ value: 'Jul close', fill: '#9a7408', fontSize: 11, position: 'top' }}
                           />
                         </ComposedChart>
                       </ResponsiveContainer>
                     </div>
                     <div className="legend-row">
                       <span><i style={{ background: '#d7ebb8', height: 10 }} /> Board plan</span>
-                      <span><i style={{ background: '#5aa314' }} /> Actual (to date)</span>
+                      <span><i style={{ background: '#5aa314' }} /> Actual (to close)</span>
                       <span><i style={{ background: '#1c2118', height: 2 }} /> Planned forward</span>
-                      {empType !== 'fte' && <span><i style={{ background: '#356891' }} /> Contractors</span>}
                       <span className="range-hint">
                         {OUTLOOK_RANGES.find((r) => r.id === outlookRange)?.hint}
                       </span>
@@ -557,7 +559,7 @@ export default function App() {
                             <div className={`bridge-row bookend ${row.kind}`} key={`${row.step}-${idx}`}>
                               <div className="bridge-label">
                                 <strong>{row.step}</strong>
-                                <span>{row.kind === 'start' ? 'Starting point' : 'Where we are today'}</span>
+                                <span>{row.kind === 'start' ? 'Starting point' : 'As of July 31 close'}</span>
                               </div>
                               <div className="bridge-value">{row.value}</div>
                             </div>
@@ -587,8 +589,8 @@ export default function App() {
                       })}
                     </div>
                     <p className="bridge-note">
-                      Read top to bottom: start at board plan, apply each change, land on current filled FTE.
-                      Contractors are excluded from this bridge.
+                      Read top to bottom: start at board plan, apply each change, land on filled FTE as of July close.
+                      Gaps are named by disposition — backfill, not backfilling, or pivot — so Finance and HR share one story.
                     </p>
                   </div>
                 )}
@@ -664,7 +666,7 @@ export default function App() {
                       </div>
                       <h3>{t.title}</h3>
                       <div className="who">
-                        {t.dept} · {t.daysOpen}d open · <span className={`type-pill ${t.type}`}>{t.type}</span>
+                        {t.dept} · {t.daysOpen}d open · <span className={`type-pill ${t.type}`}>{typeLabel(t.type)}</span>
                       </div>
                     </button>
                   ))}
@@ -702,10 +704,87 @@ export default function App() {
                 <div className="detail">
                   <h3>Definitions</h3>
                   <p>
-                    <strong>Board</strong> = approved FTE. <strong>Planned</strong> = living roll-forward.
-                    <strong> Actual</strong> = filled today. <strong>Contractors</strong> never mix into board FTE.
+                    <strong>Board</strong>, <strong>Planned</strong>, and <strong>Actual</strong> are as of July 31 close ({CLOSE_AS_OF}).
+                    Dispositions: <strong>backfill</strong> = refill vacated seat; <strong>not backfilling</strong> = intentional open;
+                    <strong> pivot</strong> = headcount moved to another role.
                   </p>
                 </div>
+
+                {persona === 'finance' && (
+                  <div className="input-panel">
+                    <h3>Log seat disposition</h3>
+                    <p className="hint">
+                      Demo input — Finance names the gap; HR tracks the disposition without a complex form.
+                    </p>
+                    <div className="input-grid">
+                      <div className="field">
+                        <label>Department</label>
+                        <select
+                          value={dispDept}
+                          onChange={(e) => setDispDept(e.target.value as Dept)}
+                        >
+                          {DEPT_LIST.map((d) => (
+                            <option key={d} value={d}>
+                              {d}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="field">
+                        <label>Disposition</label>
+                        <select
+                          value={dispType}
+                          onChange={(e) =>
+                            setDispType(
+                              e.target.value as 'backfill' | 'not_backfilling' | 'pivot' | 'close' | 'new',
+                            )
+                          }
+                        >
+                          <option value="backfill">{typeLabel('backfill')}</option>
+                          <option value="not_backfilling">{typeLabel('not_backfilling')}</option>
+                          <option value="pivot">{typeLabel('pivot')}</option>
+                          <option value="close">{typeLabel('close')}</option>
+                          <option value="new">{typeLabel('new')}</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="field" style={{ marginTop: 10 }}>
+                      <label>Short note</label>
+                      <textarea
+                        value={dispNote}
+                        onChange={(e) => setDispNote(e.target.value)}
+                        rows={2}
+                        placeholder="e.g. Not backfilling content lead — budget reallocated to Demand Gen"
+                        style={{
+                          width: '100%',
+                          resize: 'vertical',
+                          border: '1px solid var(--line)',
+                          borderRadius: 8,
+                          padding: '8px 10px',
+                          font: 'inherit',
+                        }}
+                      />
+                    </div>
+                    <div className="btn-row" style={{ marginTop: 12 }}>
+                      <button
+                        className="btn primary"
+                        onClick={() => {
+                          demoAction(
+                            `Logged ${typeLabel(dispType)} for ${dispDept}${dispNote ? ` — ${dispNote}` : ''} (demo)`,
+                          );
+                          setDispNote('');
+                        }}
+                      >
+                        Save
+                      </button>
+                    </div>
+                    {toast && (
+                      <div className="chip green" style={{ marginTop: 12 }}>
+                        {toast}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </>
@@ -743,7 +822,7 @@ export default function App() {
                     </div>
                   </div>
                   <div className="who" style={{ marginTop: 12 }}>
-                    {d.openTickets} tickets · {d.contractors} contractors · {fmtMoney(d.budgetUsd)} budget
+                    {d.openTickets} tickets · {fmtMoney(d.budgetUsd)} budget
                   </div>
                 </button>
               );
@@ -830,7 +909,7 @@ export default function App() {
                         {t.dept} · {t.requestedBy} · {t.daysOpen}d open
                       </div>
                       <div style={{ marginTop: 8 }}>
-                        <span className={`type-pill ${t.type}`}>{t.type}</span>
+                        <span className={`type-pill ${t.type}`}>{typeLabel(t.type)}</span>
                       </div>
                     </button>
                   ))}
@@ -842,7 +921,7 @@ export default function App() {
                   <div>
                     <h2>{ticket.title}</h2>
                     <p>
-                      {ticket.id} · <span className={`type-pill ${ticket.type}`}>{ticket.type}</span>
+                      {ticket.id} · <span className={`type-pill ${ticket.type}`}>{typeLabel(ticket.type)}</span>
                     </p>
                   </div>
                   <span className={`status ${ticket.status}`}>{statusLabel(ticket.status)}</span>
@@ -873,10 +952,15 @@ export default function App() {
                       <strong>Replacing:</strong> {ticket.replacing}
                     </p>
                   )}
+                  {ticket.pivotedTo && (
+                    <p style={{ marginTop: 8 }}>
+                      <strong>Pivoted to:</strong> {ticket.pivotedTo}
+                    </p>
+                  )}
                 </div>
                 <div className="detail">
                   <h3>Path</h3>
-                  <p>Manager submits → HR classifies (new / backfill / replace) → Finance checks board budget → Approved seat enters roll-forward.</p>
+                  <p>Manager submits → HR classifies (new / backfill / not backfilling / pivot) → Finance checks board budget → Approved seat enters roll-forward.</p>
                 </div>
                 <div className="btn-row" style={{ marginTop: 16 }}>
                   <button className="btn primary" onClick={() => demoAction(`Approved ${ticket.id} (demo)`)}>
@@ -916,18 +1000,17 @@ export default function App() {
                 <p>
                   {filteredRoles.length} roles
                   {dept !== 'all' ? ` in ${dept}` : ''}
-                  {empType !== 'all' ? ` · ${empType}` : ''}
-                  {roleTypeFilter !== 'all' ? ` · ${roleTypeFilter}` : ''}
+                  {roleTypeFilter !== 'all' ? ` · ${typeLabel(roleTypeFilter)}` : ''}
                 </p>
               </div>
               <div className="btn-row">
-                {(['all', 'new', 'backfill', 'replace', 'close', 'steady'] as const).map((t) => (
+                {(['all', 'new', 'backfill', 'not_backfilling', 'pivot', 'close', 'steady'] as const).map((t) => (
                   <button
                     key={t}
                     className={`btn ${roleTypeFilter === t ? 'active' : ''}`}
                     onClick={() => setRoleTypeFilter(t)}
                   >
-                    {t === 'all' ? 'All' : t}
+                    {t === 'all' ? 'All' : typeLabel(t)}
                   </button>
                 ))}
               </div>
@@ -939,7 +1022,6 @@ export default function App() {
                     <th>Role</th>
                     <th>Dept</th>
                     <th>Type</th>
-                    <th>Emp</th>
                     <th>Board</th>
                     <th>Planned</th>
                     <th>Actual</th>
@@ -961,12 +1043,21 @@ export default function App() {
                             Replacing {r.replacing}
                           </div>
                         )}
+                        {r.pivotedTo && (
+                          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                            Pivoted to {r.pivotedTo}
+                          </div>
+                        )}
+                        {r.pivotedFrom && (
+                          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                            Pivoted from {r.pivotedFrom}
+                          </div>
+                        )}
                       </td>
                       <td>{r.dept}</td>
                       <td>
-                        <span className={`type-pill ${r.type}`}>{r.type}</span>
+                        <span className={`type-pill ${r.type}`}>{typeLabel(r.type)}</span>
                       </td>
-                      <td>{r.empType === 'fte' ? 'FTE' : 'Contractor'}</td>
                       <td className="num">{r.board}</td>
                       <td className="num">{r.planned}</td>
                       <td className="num">{r.actual}</td>
@@ -987,6 +1078,16 @@ export default function App() {
                 {role.manager ? ` Manager: ${role.manager}.` : ''}
                 {role.startMonth ? ` Target start: ${role.startMonth}.` : ''}
               </p>
+              {role.pivotedTo && (
+                <p style={{ marginTop: 8 }}>
+                  <strong>Pivoted to:</strong> {role.pivotedTo}
+                </p>
+              )}
+              {role.pivotedFrom && (
+                <p style={{ marginTop: 8 }}>
+                  <strong>Pivoted from:</strong> {role.pivotedFrom}
+                </p>
+              )}
               <div className="detail-grid">
                 <div className="detail-stat">
                   <span>Board</span>
@@ -1002,7 +1103,7 @@ export default function App() {
                 </div>
                 <div className="detail-stat">
                   <span>Type</span>
-                  <strong style={{ fontSize: 14 }}>{role.type.toUpperCase()}</strong>
+                  <strong style={{ fontSize: 14 }}>{typeLabel(role.type)}</strong>
                 </div>
               </div>
             </div>
@@ -1052,8 +1153,7 @@ export default function App() {
                 <h3>{activeSnap.label}</h3>
                 <p>
                   At {activeSnap.asOf}: board {activeSnap.board}, planned {activeSnap.planned}, actual{' '}
-                  {activeSnap.actual}, contractors {activeSnap.contractors}. Variance vs board:{' '}
-                  {activeSnap.variance}.
+                  {activeSnap.actual}. Variance vs board: {activeSnap.variance}.
                 </p>
               </div>
             </div>
@@ -1107,7 +1207,7 @@ export default function App() {
                 <div className="excel-badge">.xlsx preview</div>
                 <h2 id="export-title">Headcount reconciliation report</h2>
                 <p>
-                  {COMPANY} · As of {AS_OF}
+                  {COMPANY} · As of July close {CLOSE_AS_OF}
                   {dept !== 'all' ? ` · ${dept}` : ' · All departments'} · Ready for finance / HR share-out
                 </p>
               </div>
@@ -1165,7 +1265,7 @@ export default function App() {
                     <tr>
                       <td>Actual FTE</td>
                       <td>{scope.actual}</td>
-                      <td>Filled seats as of {AS_OF}</td>
+                      <td>Filled seats as of July close {CLOSE_AS_OF}</td>
                     </tr>
                     <tr>
                       <td>Variance vs board</td>
@@ -1174,11 +1274,6 @@ export default function App() {
                         {scope.variance}
                       </td>
                       <td>{scope.explain}</td>
-                    </tr>
-                    <tr>
-                      <td>Contractors</td>
-                      <td>{scope.contractors}</td>
-                      <td>Excluded from board FTE</td>
                     </tr>
                     <tr>
                       <td>Open tickets</td>
@@ -1208,7 +1303,6 @@ export default function App() {
                       <th>Planned</th>
                       <th>Actual</th>
                       <th>Δ Board</th>
-                      <th>Contractors</th>
                       <th>Open tickets</th>
                       <th>Budget</th>
                       <th>Spend</th>
@@ -1222,7 +1316,6 @@ export default function App() {
                         <td>{d.planned}</td>
                         <td>{d.actual}</td>
                         <td>{d.actual - d.board}</td>
-                        <td>{d.contractors}</td>
                         <td>{d.openTickets}</td>
                         <td>{fmtMoney(d.budgetUsd)}</td>
                         <td>{fmtMoney(d.spendUsd)}</td>
@@ -1239,13 +1332,13 @@ export default function App() {
                       <th>Role</th>
                       <th>Department</th>
                       <th>Type</th>
-                      <th>Emp type</th>
                       <th>Board</th>
                       <th>Planned</th>
                       <th>Actual</th>
                       <th>Δ</th>
                       <th>Status</th>
                       <th>Replacing</th>
+                      <th>Pivoted to</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1253,14 +1346,14 @@ export default function App() {
                       <tr key={r.id}>
                         <td>{r.title}</td>
                         <td>{r.dept}</td>
-                        <td>{r.type}</td>
-                        <td>{r.empType}</td>
+                        <td>{typeLabel(r.type)}</td>
                         <td>{r.board}</td>
                         <td>{r.planned}</td>
                         <td>{r.actual}</td>
                         <td>{r.variance}</td>
                         <td>{statusLabel(r.status)}</td>
                         <td>{r.replacing ?? '—'}</td>
+                        <td>{r.pivotedTo ?? '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1289,7 +1382,7 @@ export default function App() {
                         <td>{t.id}</td>
                         <td>{t.title}</td>
                         <td>{t.dept}</td>
-                        <td>{t.type}</td>
+                        <td>{typeLabel(t.type)}</td>
                         <td>{statusLabel(t.status)}</td>
                         <td>{t.requestedBy}</td>
                         <td>{t.createdAt}</td>

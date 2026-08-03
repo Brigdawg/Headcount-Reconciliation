@@ -138,8 +138,8 @@ head(s, "Problem", "Reconciliation is critical. The tools are unreadable.")
 # three pain blocks
 pains = [
     ("Many sources", "Board plan, roll-forward, HRIS actuals, and approvals live in separate tabs and systems."),
-    ("No shared language", "Backfill, net-new, contractor, and “approved” mean different things to Finance and HR."),
-    ("No trusted as-of", "Leaders cannot answer headcount at a date without a rebuild — so trust erodes every close."),
+    ("No shared language", "Backfill, not backfilling, pivot, and net-new mean different things — so −2 looks unexplained."),
+    ("No trusted as-of", "Leaders cannot tell if the number is as of today or as of month-end close — trust erodes every recon."),
 ]
 for i, (h, d) in enumerate(pains):
     left = Inches(0.75 + i * 4.1)
@@ -179,8 +179,8 @@ notes(s, "Cite sources aloud. Point: if people cost dominates opex and spreadshe
 s = slide()
 head(s, "Why it matters", "Who wins when the number is trustworthy")
 rows = [
-    ("Finance", "One explained variance story at close", "Fewer recon threads · faster board answers"),
-    ("HR", "Clear ticket types and approval path", "Backfills don’t masquerade as net-new"),
+    ("Finance", "One explained variance story at a clear as-of date", "Named missing seats · faster board answers"),
+    ("HR", "Easy dispositions: backfill / not backfilling / pivot", "Inputs Finance can trust without a rebuild"),
     ("Managers", "Visible request status", "Less tribal knowledge"),
     ("BambooHR", "A reason for finance to care about HRIS", "“Sell the finance department easier”"),
 ]
@@ -238,11 +238,11 @@ notes(s, "Be precise on attribution. Pattern: shared systems scarce; integration
 s = slide()
 head(s, "Hypotheses", "Five beliefs we designed the prototype to test")
 hyps = [
-    ("H1", "Cognitive load", "Multi-tab recon exceeds working memory", "Story + one control tower"),
-    ("H2", "Definition debt", "Backfill / new / contractor undefined", "Type tags + shared glossary"),
-    ("H3", "No decision object", "Approvals live outside the recon", "Ticket queue in-product"),
-    ("H4", "Time blindness", "No history or as-of snapshots", "Ranges + audit trail"),
-    ("H5", "Wrong default viz", "Grids serve authors, not leaders", "Bridge > Sankey"),
+    ("H1", "Cognitive load", "Multi-tab recon exceeds working memory", "Story + named missing seats"),
+    ("H2", "Definition debt", "Backfill / not backfilling / pivot undefined", "Disposition tags HR can set"),
+    ("H3", "No decision object", "Approvals live outside the recon", "Simple Finance + HR inputs"),
+    ("H4", "Time blindness", "Today vs close date confused", "Explicit July close as-of"),
+    ("H5", "Wrong default viz", "Grids serve authors, not leaders", "Bridge tells the story first"),
 ]
 for i, (tag, title, belief, test) in enumerate(hyps):
     y = Inches(1.55 + i * 0.95)
@@ -268,7 +268,7 @@ text(t1, "In hand", size=14, bold=True, color=GREEN_DK)
 b1 = s.shapes.add_textbox(Inches(1.1), Inches(2.5), Inches(5.2), Inches(3.5))
 tf = text(b1, "Head of Finance conversation (exact quotes)", size=15, color=INK)
 para(tf, "Live spreadsheet: board / roll-forward / HC recon / net-new", size=15, color=INK, before=14)
-para(tf, "Observed friction: definitions, as-of, approvals, unexplained variance", size=15, color=INK, before=14)
+para(tf, "Follow-up review: name what’s missing, clear as-of, not backfilling + pivots, drop contractors, tell the story", size=14, color=INK, before=14)
 
 box(s, Inches(6.9), Inches(1.65), Inches(5.7), Inches(4.7), SOFT)
 t2 = s.shapes.add_textbox(Inches(7.25), Inches(1.95), Inches(5.1), Inches(0.4))
@@ -320,9 +320,9 @@ notes(s, "Highlight human nodes in green path. Weekly triad + glossary + source-
 s = slide()
 head(s, "Iterations", "Ship → show → simplify")
 shots = [
-    (SHOTS / "01-home-outlook-tile.png", "Outlook", "Story + timeline + history ranges"),
-    (SHOTS / "02-bridge-tile.png", "Bridge", "Readable gap explanation"),
-    (SHOTS / "03-approvals-tile.png", "Approvals", "Manager → HR → Finance"),
+    (SHOTS / "01-home-outlook-tile.png", "Story first", "Named missing seats + July close as-of"),
+    (SHOTS / "02-bridge-tile.png", "Bridge", "Backfill · not backfilling · pivot"),
+    (SHOTS / "03-approvals-tile.png", "Simple inputs", "HR dispositions Finance can track"),
     (SHOTS / "04-export-tile.png", "Export", "Close-ready workbook preview"),
 ]
 for i, (path, label, sub) in enumerate(shots):
@@ -340,17 +340,17 @@ for i, (path, label, sub) in enumerate(shots):
             pic.width = int(pic.width * (max_h / pic.height))
             pic.height = max_h
 foot(s, 10)
-notes(s, "Key cuts: quotes off product UI; waterfall → bridge; working filters; history ranges; real logo; export preview.")
+notes(s, "Key cuts from Finance review: contractors out for simplicity; Marketing −2 named (Events not backfilling + Lifecycle closed); pivots; July close vs viewing date; story before grids.")
 
 
 # ---------- 11 Success ----------
 s = slide()
 head(s, "Success metrics", "Measure understanding — tie every metric to why")
 metrics = [
-    ("Time to understand HC @ date", "< 30 seconds", "Comprehension"),
+    ("Time to understand HC @ close date", "< 30 seconds", "Comprehension"),
     ("Month-end recon time", "Hours → minutes", "Finance speed"),
-    ("Backfill decision SLA", "Median days ↓", "HR clarity"),
-    ("Spreadsheet steps removed", "Checklist shrinks", "Ops cost"),
+    ("Disposition logged on attrition", "% of exits tagged", "HR clarity"),
+    ("Unexplained dept gaps", "→ 0 at close", "Named seats"),
     ("Variance follow-ups / close", "Fewer threads", "Trust"),
     ("Weekly active Finance + HR", "Adoption", "Real use"),
 ]
@@ -410,9 +410,9 @@ if LOGO.exists():
 t = s.shapes.add_textbox(Inches(0.9), Inches(2.4), Inches(11), Inches(1.6))
 tf = text(t, "Make headcount reconciliation\nunderstandable in 30 seconds.", size=32, bold=True, color=INK)
 b = s.shapes.add_textbox(Inches(0.9), Inches(4.4), Inches(11), Inches(1.4))
-tf = text(b, "Problem: comprehension. Why: finance trust + HR decisions + BambooHR GTM.", size=16, color=INK)
-para(tf, "Evidence → hypotheses → cross-functional build → iterate → measure.", size=16, color=INK, before=10)
-para(tf, "AI accelerated discovery. Judgment drove the product calls.", size=16, bold=True, color=GREEN_DK, before=10)
+tf = text(b, "Tell the story: as-of date · named missing seats · dispositions Finance and HR share.", size=16, color=INK)
+para(tf, "Evidence → hypotheses → cross-functional build → iterate with Finance → measure.", size=16, color=INK, before=10)
+para(tf, "AI accelerated discovery. Judgment — and partner review — drove the product calls.", size=16, bold=True, color=GREEN_DK, before=10)
 c = s.shapes.add_textbox(Inches(0.9), Inches(6.3), Inches(11), Inches(0.4))
 text(c, "Live prototype link in README  ·  Next: 5 interviews + one close pilot", size=14, color=MUTED)
 notes(s, "End on north star. Offer demo + pilot conversation.")
