@@ -240,7 +240,7 @@ head(s, "Hypotheses", "Five beliefs we designed the prototype to test")
 hyps = [
     ("H1", "Cognitive load", "Multi-tab recon exceeds working memory", "Story + named missing seats"),
     ("H2", "Definition debt", "Backfill / not backfilling / pivot undefined", "Disposition tags HR can set"),
-    ("H3", "No decision object", "Approvals live outside the recon", "Simple Finance + HR inputs"),
+    ("H3", "No decision object", "Mid-cycle changes live in spreadsheets", "Manual update in-product"),
     ("H4", "Time blindness", "Today vs close date confused", "Explicit July close as-of"),
     ("H5", "Wrong default viz", "Grids serve authors, not leaders", "Bridge tells the story first"),
 ]
@@ -322,7 +322,7 @@ head(s, "Iterations", "Ship → show → simplify")
 shots = [
     (SHOTS / "01-home-outlook-tile.png", "Story first", "Named missing seats + July close as-of"),
     (SHOTS / "02-bridge-tile.png", "Bridge", "Backfill · not backfilling · pivot"),
-    (SHOTS / "03-approvals-tile.png", "Simple inputs", "HR dispositions Finance can track"),
+    (SHOTS / "03-approvals-tile.png", "Manual update", "Mid-cycle edits systems miss"),
     (SHOTS / "04-export-tile.png", "Export", "Close-ready workbook preview"),
 ]
 for i, (path, label, sub) in enumerate(shots):

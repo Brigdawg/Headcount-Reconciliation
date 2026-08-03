@@ -12,7 +12,7 @@ Built as a BambooHR interview case study. Demo data is fictional (**Northline Sy
 
 - A company story first: board vs actual as of a clear close date, with **named missing seats**
 - Variance bridge (backfill, not backfilling, pivot, delayed net-new)
-- Simple Finance / HR disposition inputs on the same workflow
+- **Manual update** for mid-cycle changes systems miss — correct numbers, log a departure, or add a seat
 - Department views, approvals queue, roles table, and as-of snapshots
 - Excel export preview (illustrative, not a real download)
 

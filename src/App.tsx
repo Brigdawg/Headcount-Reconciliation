@@ -33,14 +33,23 @@ import {
   typeLabel,
   type AppView,
   type ApprovalStatus,
+  type AuditEvent,
   type BridgeStep,
   type Dept,
+  type DeptBudget,
   type OutlookRange,
   type Persona,
+  type RoleRow,
   type RoleType,
+  type TicketType,
 } from './data/mockData';
 
 type ExportSheet = 'summary' | 'departments' | 'roles' | 'tickets';
+type ManualMode = 'correct' | 'departure' | 'add';
+type ManualAdj = { id: string; ts: string; kind: string; summary: string; dept: Dept };
+type CorrectField = 'actual' | 'planned' | 'board';
+type DepartureDisposition = 'backfill' | 'not_backfilling' | 'pivot' | 'close';
+type AddSeatType = 'new' | 'backfill' | 'not_backfilling' | 'pivot' | 'close';
 
 function statusLabel(s: string) {
   return s.replace(/_/g, ' ');
@@ -110,18 +119,43 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportSheet, setExportSheet] = useState<ExportSheet>('summary');
-  const [dispDept, setDispDept] = useState<Dept>('Marketing');
-  const [dispType, setDispType] = useState<'backfill' | 'not_backfilling' | 'pivot' | 'close' | 'new'>(
-    'not_backfilling',
-  );
-  const [dispNote, setDispNote] = useState('');
 
-  const scope = useMemo(() => summarizeScope(dept), [dept]);
+  const [liveDepts, setLiveDepts] = useState<DeptBudget[]>(() => departments.map((d) => ({ ...d })));
+  const [liveRoles, setLiveRoles] = useState<RoleRow[]>(() => roles.map((r) => ({ ...r })));
+  const [liveTickets, setLiveTickets] = useState(() => [...tickets]);
+  const [liveAudit, setLiveAudit] = useState<AuditEvent[]>(() => [...auditTrail]);
+  const [manualAdjs, setManualAdjs] = useState<ManualAdj[]>([]);
+
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualMode, setManualMode] = useState<ManualMode>('correct');
+
+  const [correctDept, setCorrectDept] = useState<Dept>('Engineering');
+  const [correctField, setCorrectField] = useState<CorrectField>('actual');
+  const [correctValue, setCorrectValue] = useState('');
+  const [correctReason, setCorrectReason] = useState('');
+
+  const [depTitle, setDepTitle] = useState('');
+  const [depDept, setDepDept] = useState<Dept>('Engineering');
+  const [depPerson, setDepPerson] = useState('');
+  const [depDisposition, setDepDisposition] = useState<DepartureDisposition>('backfill');
+  const [depPivotTo, setDepPivotTo] = useState('');
+  const [depDate, setDepDate] = useState(VIEWING_AS_OF);
+  const [depNote, setDepNote] = useState('');
+
+  const [addTitle, setAddTitle] = useState('');
+  const [addDept, setAddDept] = useState<Dept>('Engineering');
+  const [addType, setAddType] = useState<AddSeatType>('new');
+  const [addBoard, setAddBoard] = useState(1);
+  const [addPlanned, setAddPlanned] = useState(1);
+  const [addActual, setAddActual] = useState(0);
+  const [addNote, setAddNote] = useState('');
+
+  const scope = useMemo(() => summarizeScope(dept, liveDepts, liveRoles), [dept, liveDepts, liveRoles]);
   const months = useMemo(() => getMonthsForDept(dept, outlookRange), [dept, outlookRange]);
   const hist = useMemo(() => historySummary(months), [months]);
-  const bridge = useMemo(() => getBridgeForDept(dept), [dept]);
+  const bridge = useMemo(() => getBridgeForDept(dept, liveDepts), [dept, liveDepts]);
   const bridgeRows = useMemo(() => buildBridgeRows(bridge), [bridge]);
-  const missingSeats = useMemo(() => getMissingSeats(dept), [dept]);
+  const missingSeats = useMemo(() => getMissingSeats(dept, liveRoles), [dept, liveRoles]);
 
   const outlookData = useMemo(() => {
     return months.map((m) => ({
@@ -134,37 +168,40 @@ export default function App() {
   }, [months]);
 
   const filteredTickets = useMemo(() => {
-    return tickets.filter((t) => {
+    return liveTickets.filter((t) => {
       if (dept !== 'all' && t.dept !== dept) return false;
       if (ticketFilter !== 'all' && t.status !== ticketFilter) return false;
       return true;
     });
-  }, [dept, ticketFilter]);
+  }, [dept, ticketFilter, liveTickets]);
 
   const filteredRoles = useMemo(() => {
-    return roles.filter((r) => {
+    return liveRoles.filter((r) => {
       if (dept !== 'all' && r.dept !== dept) return false;
       if (roleTypeFilter !== 'all' && r.type !== roleTypeFilter) return false;
       return true;
     });
-  }, [dept, roleTypeFilter]);
+  }, [dept, roleTypeFilter, liveRoles]);
 
   const filteredDepts = useMemo(() => {
-    if (dept === 'all') return departments;
-    return departments.filter((d) => d.dept === dept);
-  }, [dept]);
+    if (dept === 'all') return liveDepts;
+    return liveDepts.filter((d) => d.dept === dept);
+  }, [dept, liveDepts]);
 
   const filteredAudit = useMemo(() => {
-    return auditTrail.filter((e) => dept === 'all' || !e.dept || e.dept === dept);
-  }, [dept]);
+    return liveAudit.filter((e) => dept === 'all' || !e.dept || e.dept === dept);
+  }, [dept, liveAudit]);
 
-  const openTicketCount = tickets.filter((t) =>
+  const openTicketCount = liveTickets.filter((t) =>
     ['pending', 'hr_review', 'finance_review'].includes(t.status),
   ).length;
 
-  const ticket = tickets.find((t) => t.id === selectedTicket) ?? tickets[0];
-  const role = roles.find((r) => r.id === selectedRole) ?? roles[0];
+  const ticket = liveTickets.find((t) => t.id === selectedTicket) ?? liveTickets[0];
+  const role = liveRoles.find((r) => r.id === selectedRole) ?? liveRoles[0];
   const activeSnap = snapshots.find((s) => s.id === snapshotId) ?? snapshots[2];
+
+  const correctCurrentDept = liveDepts.find((d) => d.dept === correctDept);
+  const correctCurrentValue = correctCurrentDept?.[correctField] ?? 0;
 
   const pageCopy: Record<AppView, { title: string; sub: string }> = {
     home: {
@@ -202,6 +239,225 @@ export default function App() {
   function demoAction(msg: string) {
     setToast(msg);
     window.setTimeout(() => setToast(null), 2200);
+  }
+
+  function openManual(mode: ManualMode = 'correct') {
+    setManualMode(mode);
+    if (dept !== 'all') {
+      setCorrectDept(dept);
+      setDepDept(dept);
+      setAddDept(dept);
+    }
+    setManualOpen(true);
+  }
+
+  function stampNow() {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    return `${VIEWING_AS_OF} ${hh}:${mm}`;
+  }
+
+  function recordManual(kind: string, summary: string, targetDept: Dept, auditAction: string) {
+    const ts = stampNow();
+    const id = `m-${Date.now()}`;
+    setManualAdjs((prev) => [{ id, ts, kind, summary, dept: targetDept }, ...prev]);
+    setLiveAudit((prev) => [
+      {
+        id: `a-${id}`,
+        ts,
+        actor: persona === 'finance' ? 'Alex Morgan (FP&A)' : 'Jordan Wells (HR)',
+        action: auditAction,
+        detail: summary,
+        dept: targetDept,
+      },
+      ...prev,
+    ]);
+  }
+
+  function saveCorrectNumbers() {
+    const nextVal = Number(correctValue);
+    if (!Number.isFinite(nextVal) || correctValue.trim() === '') {
+      demoAction('Enter a valid number');
+      return;
+    }
+    if (!correctReason.trim()) {
+      demoAction('Reason is required');
+      return;
+    }
+    const prev = correctCurrentValue;
+    setLiveDepts((depts) =>
+      depts.map((d) => {
+        if (d.dept !== correctDept) return d;
+        const updated = { ...d, [correctField]: nextVal };
+        if (correctField === 'actual' && nextVal !== d.actual) {
+          updated.varianceExplain = `${d.varianceExplain} Manual ${correctField}: ${prev} → ${nextVal} (${correctReason.trim()}).`;
+        }
+        return updated;
+      }),
+    );
+    const summary = `${correctDept} ${correctField} ${prev} → ${nextVal}: ${correctReason.trim()}`;
+    recordManual('Correct numbers', summary, correctDept, 'Manual number correction');
+    demoAction(`Updated ${correctDept} ${correctField} to ${nextVal}`);
+    setCorrectValue('');
+    setCorrectReason('');
+    setManualOpen(false);
+  }
+
+  function saveDeparture() {
+    if (!depTitle.trim() || !depPerson.trim()) {
+      demoAction('Role title and person are required');
+      return;
+    }
+    if (depDisposition === 'pivot' && !depPivotTo.trim()) {
+      demoAction('Pivoted to is required for pivot');
+      return;
+    }
+
+    const plannedForType = depDisposition === 'backfill' ? 1 : 0;
+    const roleId = `r-manual-${Date.now()}`;
+    const newRole: RoleRow = {
+      id: roleId,
+      title: depTitle.trim(),
+      dept: depDept,
+      type: depDisposition,
+      board: 1,
+      planned: plannedForType,
+      actual: 0,
+      variance: -1,
+      status: depDisposition === 'backfill' ? 'pending' : 'open',
+      replacing: depPerson.trim(),
+      pivotedTo: depDisposition === 'pivot' ? depPivotTo.trim() : undefined,
+      note: depNote.trim() || `Departure effective ${depDate}`,
+      manager: persona === 'hr' ? 'HR Ops' : 'FP&A',
+    };
+
+    setLiveRoles((prev) => [newRole, ...prev]);
+    setLiveDepts((depts) =>
+      depts.map((d) => {
+        if (d.dept !== depDept) return d;
+        const next: DeptBudget = {
+          ...d,
+          actual: Math.max(0, d.actual - 1),
+        };
+        if (depDisposition === 'backfill') {
+          next.openBackfills = d.openBackfills + 1;
+          next.openTickets = d.openTickets + 1;
+        }
+        next.varianceExplain = `${d.varianceExplain} Departure: ${depPerson.trim()} left ${depTitle.trim()} (${typeLabel(depDisposition)}).`;
+        return next;
+      }),
+    );
+
+    if (depDisposition === 'backfill') {
+      const ticketId = `BF-M${String(Date.now()).slice(-4)}`;
+      setLiveTickets((prev) => [
+        {
+          id: ticketId,
+          title: `${depTitle.trim()} backfill`,
+          dept: depDept,
+          requestedBy: persona === 'hr' ? 'Jordan Wells (HR)' : 'Alex Morgan (FP&A)',
+          createdAt: depDate,
+          status: 'pending',
+          type: 'backfill' as TicketType,
+          replacing: depPerson.trim(),
+          targetStart: depDate,
+          rationale: depNote.trim() || `Backfill after ${depPerson.trim()} departure`,
+          daysOpen: 0,
+        },
+        ...prev,
+      ]);
+    }
+
+    const summary =
+      depDisposition === 'pivot'
+        ? `${depPerson.trim()} left ${depTitle.trim()} · pivoted to ${depPivotTo.trim()}`
+        : `${depPerson.trim()} left ${depTitle.trim()} · ${typeLabel(depDisposition)}`;
+    recordManual('Log departure', summary, depDept, 'Manual departure');
+    demoAction(
+      depDisposition === 'backfill'
+        ? `Logged departure — ${depDept} actual −1, backfill ticket opened`
+        : `Logged departure — ${depDept} actual −1 (${typeLabel(depDisposition)})`,
+    );
+    setDepTitle('');
+    setDepPerson('');
+    setDepPivotTo('');
+    setDepNote('');
+    setManualOpen(false);
+  }
+
+  function saveAddSeat() {
+    if (!addTitle.trim()) {
+      demoAction('Role title is required');
+      return;
+    }
+    const roleId = `r-add-${Date.now()}`;
+    const newRole: RoleRow = {
+      id: roleId,
+      title: addTitle.trim(),
+      dept: addDept,
+      type: addType,
+      board: addBoard,
+      planned: addPlanned,
+      actual: addActual,
+      variance: addActual - addBoard,
+      status: addActual >= addBoard ? 'filled' : addType === 'backfill' || addType === 'new' ? 'pending' : 'open',
+      note: addNote.trim() || undefined,
+      manager: persona === 'hr' ? 'HR Ops' : 'FP&A',
+    };
+    setLiveRoles((prev) => [newRole, ...prev]);
+    setSelectedRole(roleId);
+
+    const bumpTickets = addType === 'new' || addType === 'backfill';
+    setLiveDepts((depts) =>
+      depts.map((d) => {
+        if (d.dept !== addDept) return d;
+        return {
+          ...d,
+          board: d.board + addBoard,
+          planned: d.planned + addPlanned,
+          actual: d.actual + addActual,
+          openTickets: bumpTickets ? d.openTickets + 1 : d.openTickets,
+          openBackfills: addType === 'backfill' ? d.openBackfills + 1 : d.openBackfills,
+          varianceExplain: `${d.varianceExplain} Added seat: ${addTitle.trim()} (${typeLabel(addType)}).`,
+        };
+      }),
+    );
+
+    if (bumpTickets) {
+      const ticketId = `${addType === 'backfill' ? 'BF' : 'RQ'}-M${String(Date.now()).slice(-4)}`;
+      setLiveTickets((prev) => [
+        {
+          id: ticketId,
+          title: addTitle.trim(),
+          dept: addDept,
+          requestedBy: persona === 'hr' ? 'Jordan Wells (HR)' : 'Alex Morgan (FP&A)',
+          createdAt: VIEWING_AS_OF,
+          status: 'pending',
+          type: (addType === 'backfill' ? 'backfill' : 'new') as TicketType,
+          targetStart: VIEWING_AS_OF,
+          rationale: addNote.trim() || `Manual seat add — ${typeLabel(addType)}`,
+          daysOpen: 0,
+        },
+        ...prev,
+      ]);
+    }
+
+    const summary = `Added ${addTitle.trim()} · board ${addBoard} / planned ${addPlanned} / actual ${addActual}`;
+    recordManual('Add seat', summary, addDept, 'Manual seat add');
+    demoAction(`Added ${addTitle.trim()} in ${addDept}`);
+    setAddTitle('');
+    setAddNote('');
+    setAddBoard(1);
+    setAddPlanned(1);
+    setAddActual(0);
+    setManualOpen(false);
+  }
+
+  function saveManual() {
+    if (manualMode === 'correct') saveCorrectNumbers();
+    else if (manualMode === 'departure') saveDeparture();
+    else saveAddSeat();
   }
 
   const yDomain = useMemo(() => {
@@ -274,7 +530,10 @@ export default function App() {
             <p>{pageCopy[view].sub}</p>
           </div>
           <div className="top-actions">
-            <button className="btn primary" onClick={() => setExportOpen(true)}>
+            <button className="btn primary" onClick={() => openManual('correct')}>
+              Manual update
+            </button>
+            <button className="btn" onClick={() => setExportOpen(true)}>
               Export to Excel
             </button>
             <span className="chip green">Demo data</span>
@@ -391,6 +650,30 @@ export default function App() {
             <p className="date-banner">
               Headcount figures are as of July 31 close ({CLOSE_AS_OF}), not calendar today ({VIEWING_AS_OF}).
             </p>
+
+            {manualAdjs.length > 0 && (
+              <div className="panel" style={{ marginBottom: 16, padding: '14px 16px' }}>
+                <div className="panel-h" style={{ marginBottom: 8 }}>
+                  <div>
+                    <h2 style={{ fontSize: 15 }}>Manual updates this session</h2>
+                    <p>Mid-cycle changes applied after July close — reflected in story, bridge, and audit.</p>
+                  </div>
+                </div>
+                <div className="adj-list">
+                  {manualAdjs.map((a) => (
+                    <div className="adj-item" key={a.id}>
+                      <time>{a.ts}</time>
+                      <div>
+                        <strong>
+                          {a.kind} · {a.dept}
+                        </strong>
+                        <p>{a.summary}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <section className="kpi-grid">
               <div className="kpi">
@@ -710,81 +993,15 @@ export default function App() {
                   </p>
                 </div>
 
-                {persona === 'finance' && (
-                  <div className="input-panel">
-                    <h3>Log seat disposition</h3>
-                    <p className="hint">
-                      Demo input — Finance names the gap; HR tracks the disposition without a complex form.
-                    </p>
-                    <div className="input-grid">
-                      <div className="field">
-                        <label>Department</label>
-                        <select
-                          value={dispDept}
-                          onChange={(e) => setDispDept(e.target.value as Dept)}
-                        >
-                          {DEPT_LIST.map((d) => (
-                            <option key={d} value={d}>
-                              {d}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="field">
-                        <label>Disposition</label>
-                        <select
-                          value={dispType}
-                          onChange={(e) =>
-                            setDispType(
-                              e.target.value as 'backfill' | 'not_backfilling' | 'pivot' | 'close' | 'new',
-                            )
-                          }
-                        >
-                          <option value="backfill">{typeLabel('backfill')}</option>
-                          <option value="not_backfilling">{typeLabel('not_backfilling')}</option>
-                          <option value="pivot">{typeLabel('pivot')}</option>
-                          <option value="close">{typeLabel('close')}</option>
-                          <option value="new">{typeLabel('new')}</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="field" style={{ marginTop: 10 }}>
-                      <label>Short note</label>
-                      <textarea
-                        value={dispNote}
-                        onChange={(e) => setDispNote(e.target.value)}
-                        rows={2}
-                        placeholder="e.g. Not backfilling content lead — budget reallocated to Demand Gen"
-                        style={{
-                          width: '100%',
-                          resize: 'vertical',
-                          border: '1px solid var(--line)',
-                          borderRadius: 8,
-                          padding: '8px 10px',
-                          font: 'inherit',
-                        }}
-                      />
-                    </div>
-                    <div className="btn-row" style={{ marginTop: 12 }}>
-                      <button
-                        className="btn primary"
-                        onClick={() => {
-                          demoAction(
-                            `Logged ${typeLabel(dispType)} for ${dispDept}${dispNote ? ` — ${dispNote}` : ''} (demo)`,
-                          );
-                          setDispNote('');
-                        }}
-                      >
-                        Save
-                      </button>
-                    </div>
-                    {toast && (
-                      <div className="chip green" style={{ marginTop: 12 }}>
-                        {toast}
-                      </div>
-                    )}
+                <div className="manual-callout">
+                  <div>
+                    <strong>Something change mid-month?</strong>
+                    <p>Correct numbers, log a departure, or add a seat — updates flow into the story and bridge.</p>
                   </div>
-                )}
+                  <button className="btn primary" onClick={() => openManual('correct')}>
+                    Open manual update
+                  </button>
+                </div>
               </div>
             </div>
           </>
@@ -792,7 +1009,7 @@ export default function App() {
 
         {view === 'departments' && (
           <div className="dept-grid">
-            {departments.map((d) => {
+            {liveDepts.map((d) => {
               const v = d.actual - d.board;
               return (
                 <button
@@ -857,9 +1074,9 @@ export default function App() {
                   <div className="lane" key={status}>
                     <h3>
                       {label} (
-                      {tickets.filter((t) => t.status === status && (dept === 'all' || t.dept === dept)).length})
+                      {liveTickets.filter((t) => t.status === status && (dept === 'all' || t.dept === dept)).length})
                     </h3>
-                    {tickets
+                    {liveTickets
                       .filter((t) => t.status === status && (dept === 'all' || t.dept === dept))
                       .map((t) => (
                         <button
@@ -961,6 +1178,12 @@ export default function App() {
                 <div className="detail">
                   <h3>Path</h3>
                   <p>Manager submits → HR classifies (new / backfill / not backfilling / pivot) → Finance checks board budget → Approved seat enters roll-forward.</p>
+                  <div className="manual-callout compact">
+                    <p>Need to log something outside the ticket path?</p>
+                    <button className="btn" onClick={() => openManual('departure')}>
+                      Manual update
+                    </button>
+                  </div>
                 </div>
                 <div className="btn-row" style={{ marginTop: 16 }}>
                   <button className="btn primary" onClick={() => demoAction(`Approved ${ticket.id} (demo)`)}>
@@ -1004,6 +1227,9 @@ export default function App() {
                 </p>
               </div>
               <div className="btn-row">
+                <button className="btn primary" onClick={() => openManual('add')}>
+                  Add or edit…
+                </button>
                 {(['all', 'new', 'backfill', 'not_backfilling', 'pivot', 'close', 'steady'] as const).map((t) => (
                   <button
                     key={t}
@@ -1408,6 +1634,256 @@ export default function App() {
                   Download .xlsx
                 </button>
                 <button className="btn" onClick={() => setExportOpen(false)}>
+                  Cancel
+                </button>
+              </div>
+              {toast && <div className="chip green">{toast}</div>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {manualOpen && (
+        <div className="modal-backdrop" onClick={() => setManualOpen(false)} role="presentation">
+          <div
+            className="modal manual-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="manual-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-h">
+              <div>
+                <h2 id="manual-title">Manual update</h2>
+                <p>
+                  Mid-cycle changes systems miss — edit numbers, log a departure, or add a seat. Updates flow into
+                  the story, bridge, and audit.
+                </p>
+              </div>
+              <button className="btn" onClick={() => setManualOpen(false)}>
+                Close
+              </button>
+            </div>
+
+            <div className="mode-tabs" role="tablist" aria-label="Manual update mode">
+              {(
+                [
+                  ['correct', 'Correct numbers'],
+                  ['departure', 'Log departure'],
+                  ['add', 'Add seat'],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={manualMode === id}
+                  className={manualMode === id ? 'active' : ''}
+                  onClick={() => setManualMode(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="manual-body">
+              {manualMode === 'correct' && (
+                <div className="input-grid">
+                  <div className="field">
+                    <label>Department</label>
+                    <select value={correctDept} onChange={(e) => setCorrectDept(e.target.value as Dept)}>
+                      {DEPT_LIST.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label>Field</label>
+                    <select
+                      value={correctField}
+                      onChange={(e) => setCorrectField(e.target.value as CorrectField)}
+                    >
+                      <option value="actual">Actual</option>
+                      <option value="planned">Planned</option>
+                      <option value="board">Board</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label>New value</label>
+                    <input
+                      type="number"
+                      value={correctValue}
+                      onChange={(e) => setCorrectValue(e.target.value)}
+                      placeholder={String(correctCurrentValue)}
+                    />
+                    <span className="field-hint">Current: {correctCurrentValue}</span>
+                  </div>
+                  <div className="field" style={{ gridColumn: '1 / -1' }}>
+                    <label>Reason</label>
+                    <input
+                      type="text"
+                      value={correctReason}
+                      onChange={(e) => setCorrectReason(e.target.value)}
+                      placeholder="Why this number changed mid-cycle"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {manualMode === 'departure' && (
+                <div className="input-grid">
+                  <div className="field">
+                    <label>Role title</label>
+                    <input
+                      type="text"
+                      value={depTitle}
+                      onChange={(e) => setDepTitle(e.target.value)}
+                      placeholder="e.g. Events Marketing Manager"
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Department</label>
+                    <select value={depDept} onChange={(e) => setDepDept(e.target.value as Dept)}>
+                      {DEPT_LIST.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label>Person leaving</label>
+                    <input
+                      type="text"
+                      value={depPerson}
+                      onChange={(e) => setDepPerson(e.target.value)}
+                      placeholder="Full name"
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Disposition</label>
+                    <select
+                      value={depDisposition}
+                      onChange={(e) => setDepDisposition(e.target.value as DepartureDisposition)}
+                    >
+                      <option value="backfill">{typeLabel('backfill')}</option>
+                      <option value="not_backfilling">{typeLabel('not_backfilling')}</option>
+                      <option value="pivot">{typeLabel('pivot')}</option>
+                      <option value="close">{typeLabel('close')}</option>
+                    </select>
+                  </div>
+                  {depDisposition === 'pivot' && (
+                    <div className="field" style={{ gridColumn: '1 / -1' }}>
+                      <label>Pivoted to</label>
+                      <input
+                        type="text"
+                        value={depPivotTo}
+                        onChange={(e) => setDepPivotTo(e.target.value)}
+                        placeholder="Role · department"
+                      />
+                    </div>
+                  )}
+                  <div className="field">
+                    <label>Effective date</label>
+                    <input type="date" value={depDate} onChange={(e) => setDepDate(e.target.value)} />
+                  </div>
+                  <div className="field" style={{ gridColumn: '1 / -1' }}>
+                    <label>Note</label>
+                    <textarea
+                      value={depNote}
+                      onChange={(e) => setDepNote(e.target.value)}
+                      rows={2}
+                      placeholder="Optional context"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {manualMode === 'add' && (
+                <div className="input-grid">
+                  <div className="field">
+                    <label>Title</label>
+                    <input
+                      type="text"
+                      value={addTitle}
+                      onChange={(e) => setAddTitle(e.target.value)}
+                      placeholder="Role title"
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Department</label>
+                    <select value={addDept} onChange={(e) => setAddDept(e.target.value as Dept)}>
+                      {DEPT_LIST.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label>Type</label>
+                    <select value={addType} onChange={(e) => setAddType(e.target.value as AddSeatType)}>
+                      <option value="new">{typeLabel('new')}</option>
+                      <option value="backfill">{typeLabel('backfill')}</option>
+                      <option value="not_backfilling">{typeLabel('not_backfilling')}</option>
+                      <option value="pivot">{typeLabel('pivot')}</option>
+                      <option value="close">{typeLabel('close')}</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label>Board seats</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={addBoard}
+                      onChange={(e) => setAddBoard(Number(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Planned</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={addPlanned}
+                      onChange={(e) => setAddPlanned(Number(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Actual</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={addActual}
+                      onChange={(e) => setAddActual(Number(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="field" style={{ gridColumn: '1 / -1' }}>
+                    <label>Note</label>
+                    <textarea
+                      value={addNote}
+                      onChange={(e) => setAddNote(e.target.value)}
+                      rows={2}
+                      placeholder="Optional context"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="modal-foot">
+              <p>
+                {manualMode === 'correct' && 'Corrections update department totals and appear on the variance bridge.'}
+                {manualMode === 'departure' &&
+                  'Departures reduce actual headcount and create a named role row for the disposition.'}
+                {manualMode === 'add' && 'New seats bump department board / planned / actual and appear on Roles.'}
+              </p>
+              <div className="btn-row">
+                <button className="btn primary" onClick={saveManual}>
+                  Save update
+                </button>
+                <button className="btn" onClick={() => setManualOpen(false)}>
                   Cancel
                 </button>
               </div>

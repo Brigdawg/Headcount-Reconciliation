@@ -234,11 +234,23 @@ button { cursor: pointer; }
   font-weight: 600;
 }
 
-.field select {
+.field select,
+.field input,
+.field textarea {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 8px 10px;
   background: var(--surface);
+  font: inherit;
+  color: var(--ink);
+}
+.field textarea {
+  resize: vertical;
+  min-height: 64px;
+}
+.field-hint {
+  font-size: 11px;
+  color: var(--muted);
 }
 
 .spacer { flex: 1; }
@@ -556,6 +568,102 @@ button { cursor: pointer; }
 .input-panel h3 { margin: 0 0 6px; font-size: 14px; }
 .input-panel p.hint { margin: 0 0 12px; font-size: 12px; color: var(--muted); }
 .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.manual-callout {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px dashed #c5d4a8;
+  border-radius: 12px;
+  background: #f7fbf0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.manual-callout strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.manual-callout p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.manual-callout.compact {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #fafbf8;
+  border-color: var(--line);
+}
+.manual-callout.compact p {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.adj-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.adj-item {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eef1ea;
+}
+.adj-item:last-child { border-bottom: 0; }
+.adj-item time {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+.adj-item strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+.adj-item p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.mode-tabs {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  background: #f3f6f0;
+}
+.mode-tabs button {
+  flex: 1;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.mode-tabs button:last-child { border-right: 0; }
+.mode-tabs button.active {
+  background: var(--white);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--bamboo);
+}
+.manual-modal {
+  width: min(640px, 100%);
+}
+.manual-body {
+  margin-bottom: 4px;
+}
 
 .date-banner { font-size: 12px; color: var(--muted); margin: -4px 0 12px; }
 

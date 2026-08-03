@@ -631,15 +631,14 @@ export const quotes = [
 ];
 
 /** Named seats that explain plan vs actual gaps — what Finance asks for first */
-export function getMissingSeats(dept: Dept | 'all'): MissingSeat[] {
+export function getMissingSeats(dept: Dept | 'all', roleList: RoleRow[] = roles): MissingSeat[] {
   const gapTypes: RoleType[] = ['new', 'backfill', 'not_backfilling', 'pivot', 'close'];
-  return roles
+  return roleList
     .filter((r) => {
       if (dept !== 'all' && r.dept !== dept) return false;
       if (!gapTypes.includes(r.type)) return false;
       if (r.type === 'steady') return false;
-      // Show seats that contribute to a story gap (underfilled or dispositioned)
-      if (r.type === 'pivot' && r.actual === 1 && r.pivotedFrom) return true; // destination side
+      if (r.type === 'pivot' && r.actual === 1 && r.pivotedFrom) return true;
       if (r.actual < r.board || r.type === 'close' || r.type === 'not_backfilling' || (r.type === 'pivot' && r.actual === 0)) {
         return true;
       }
@@ -675,7 +674,6 @@ export function getMonthsForDept(dept: Dept | 'all', range: OutlookRange = 'h2')
   if (range === 'ytd') {
     return all.filter((m) => m.key >= '2026-01' && m.key <= '2026-12');
   }
-  // 12 months of history through today, plus remaining FY forward
   return all.filter((m) => m.key >= '2025-08' && m.key <= '2026-12');
 }
 
@@ -693,43 +691,75 @@ export function historySummary(months: MonthPoint[]) {
   };
 }
 
-export function getBridgeForDept(dept: Dept | 'all'): BridgeStep[] {
-  if (dept === 'all') return companyBridge;
-  return deptBridges[dept] ?? [
+export function getBridgeForDept(
+  dept: Dept | 'all',
+  liveDepts: DeptBudget[] = departments,
+): BridgeStep[] {
+  const base =
+    dept === 'all'
+      ? companyBridge
+      : deptBridges[dept] ?? [
+          {
+            step: 'Board plan',
+            value: liveDepts.find((d) => d.dept === dept)?.board ?? 0,
+            kind: 'start' as const,
+          },
+          {
+            step: 'Current FTE',
+            value: liveDepts.find((d) => d.dept === dept)?.actual ?? 0,
+            kind: 'end' as const,
+          },
+        ];
+
+  const liveActual =
+    dept === 'all'
+      ? liveDepts.reduce((s, d) => s + d.actual, 0)
+      : liveDepts.find((d) => d.dept === dept)?.actual ?? 0;
+  const end = base[base.length - 1];
+  if (!end || end.kind !== 'end' || end.value === liveActual) {
+    return base.map((s, i) => (i === base.length - 1 ? { ...s, value: liveActual } : s));
+  }
+
+  const delta = liveActual - end.value;
+  return [
+    ...base.slice(0, -1),
     {
-      step: 'Board plan',
-      value: departments.find((d) => d.dept === dept)?.board ?? 0,
-      kind: 'start',
+      step: 'Manual updates since close',
+      value: delta,
+      kind: delta >= 0 ? 'pos' : 'neg',
     },
-    {
-      step: 'Current FTE',
-      value: departments.find((d) => d.dept === dept)?.actual ?? 0,
-      kind: 'end',
-    },
+    { step: 'Current FTE', value: liveActual, kind: 'end' },
   ];
 }
 
-export function summarizeScope(dept: Dept | 'all') {
-  const depts = dept === 'all' ? departments : departments.filter((d) => d.dept === dept);
+export function summarizeScope(
+  dept: Dept | 'all',
+  liveDepts: DeptBudget[] = departments,
+  roleList: RoleRow[] = roles,
+) {
+  const depts = dept === 'all' ? liveDepts : liveDepts.filter((d) => d.dept === dept);
   const board = depts.reduce((s, d) => s + d.board, 0);
   const planned = depts.reduce((s, d) => s + d.planned, 0);
   const actual = depts.reduce((s, d) => s + d.actual, 0);
   const months = getMonthsForDept(dept, 'ytd');
   const fy = months[months.length - 1];
-  const missing = getMissingSeats(dept).filter((m) =>
+  const missing = getMissingSeats(dept, roleList).filter((m) =>
     ['not_backfilling', 'close', 'backfill', 'new'].includes(m.disposition),
   );
+  const variance = actual - board;
 
   const storyBits =
     dept === 'all'
-      ? 'You are 17 seats under board as of July 31 close. The bridge names why: delayed net-new, open backfills, seats we are not backfilling, and early exits still open.'
+      ? variance === 0
+        ? 'On board plan as of the latest figures (July 31 close, plus any manual updates since).'
+        : `You are ${Math.abs(variance)} seat${Math.abs(variance) === 1 ? '' : 's'} ${variance < 0 ? 'under' : 'over'} board. The bridge names why — including any mid-cycle manual updates.`
       : depts[0]?.varianceExplain ?? '';
 
   return {
     board,
     planned,
     actual,
-    variance: actual - board,
+    variance,
     openTickets: depts.reduce((s, d) => s + d.openTickets, 0),
     openBackfills: depts.reduce((s, d) => s + d.openBackfills, 0),
     budgetUsd: depts.reduce((s, d) => s + d.budgetUsd, 0),
